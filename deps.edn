@@ -1,0 +1,39 @@
+{:paths ["src"]
+
+ ;; glimmer-uikit is the native macOS (AppKit) backend for glimmer: glimmer owns
+ ;; the reactive core (ratom, component model, reconciler) and knows nothing
+ ;; about any toolkit; this project supplies the widgets, the prop/event wiring
+ ;; and the app loop, and registers them through glimmer.backend.
+ ;;
+ ;; AppKit itself is NOT declared under :jolt/native — glimmer-uikit.ffi loads
+ ;; the frameworks itself, guarded to macOS only. That keeps `jolt -M:test`
+ ;; (the headless markup/string tests) runnable on Linux CI, where no AppKit
+ ;; exists; on macOS the dlopen happens at require time, before any class is
+ ;; looked up.
+ ;;
+ ;; hiccup is used to serialize Pango markup data ([:span {...} "text"]) for a
+ ;; label's :markup prop.
+ :deps {jolt-lang/glimmer {:git/url "https://github.com/jolt-lang/glimmer"
+                           :git/tag "v0.1.0"
+                           :git/sha "5581c331c51aff989259b9e8e92ec920fe5e6741"}
+        weavejester/hiccup
+        {:git/url "https://github.com/weavejester/hiccup"
+         :git/sha "b6b12097ba973141fe87c1b4d6a27ddcce5d5929"}}
+
+ ;; Each runnable has its own alias with :main-opts (jolt's -M:alias form needs
+ ;; main-opts). Tasks are thin wrappers so you can run `jolt counter`, etc.
+ :aliases {:test    {:extra-paths ["test"]     :main-opts ["-m" "glimmer-uikit.test-runner"]}
+           :counter {:extra-paths ["examples"] :main-opts ["-m" "glimmer-uikit.counter"]}
+           :todo    {:extra-paths ["examples"] :main-opts ["-m" "glimmer-uikit.todo"]}
+           :smoke   {:extra-paths ["examples"] :main-opts ["-m" "glimmer-uikit.reactivity-smoke"]}
+           :main-thread-smoke {:extra-paths ["examples"] :main-opts ["-m" "glimmer-uikit.main-thread-smoke"]}
+           :repl-live-smoke {:extra-paths ["examples"] :main-opts ["-m" "glimmer-uikit.repl-live-smoke"]}
+           :keyed   {:extra-paths ["examples"] :main-opts ["-m" "glimmer-uikit.keyed"]}}
+
+ :tasks {test    "jolt -M:test"
+         counter "jolt -M:counter"
+         todo    "jolt -M:todo"
+         smoke   "jolt -M:smoke"
+         main-thread-smoke "jolt -M:main-thread-smoke"
+         repl-live-smoke "jolt -M:repl-live-smoke"
+         keyed   "jolt -M:keyed"}}
