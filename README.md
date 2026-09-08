@@ -166,3 +166,7 @@ thread (AppKit requires it on macOS) and returns immediately, so the REPL sessio
 stays live. Mutate a `defonce` reactive cell and the window repaints (the write
 is marshalled onto the main loop); after redefining components call
 `(glimmer.core/reload!)` to re-mount the root in the same window.
+
+## License
+
+MIT (see `LICENSE`).
