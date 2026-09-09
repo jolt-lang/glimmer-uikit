@@ -212,6 +212,36 @@
 (defn shared-application [] (objc-msg-send-0 (cls "NSApplication") (sel "sharedApplication")))
 (defn set-activation-policy! [app v] (objc-msg-send-1i64void app (sel "setActivationPolicy:") v))
 (defn run-app! [app] (objc-msg-send-run app (sel "run")))
+
+;; --- uncaught Objective-C exceptions -----------------------------------------
+;; An NSException thrown inside an AppKit call (a constraint set up wrong, a
+;; selector a view does not answer) unwinds to objc_terminate and the process
+;; aborts: a native crash report, no jolt backtrace, nothing to catch. It
+;; cannot be turned into a jolt throwable from here -- the ObjC unwinder cannot
+;; cross the Chez frames between the throw and the foreign call, so nothing
+;; short of a C @try around objc_msgSend would let the call return -- but the
+;; runtime's uncaught-exception handler runs BEFORE the abort, and there the
+;; exception's name, reason and the jolt frames that made the call can still be
+;; written. So the report a user sees names the call, not just SIGABRT.
+(ffi/defcfn ns-set-uncaught-exception-handler "NSSetUncaughtExceptionHandler" [:pointer] :void)
+(defonce ^:private uncaught-report
+  (ffi/foreign-callable
+    (fn [exc]
+      (let [nm (try (nsstring->str (objc-msg-send-0 exc (sel "name"))) (catch :default _ "NSException"))
+            why (try (nsstring->str (objc-msg-send-0 exc (sel "reason"))) (catch :default _ ""))]
+        (binding [*out* *err*]
+          (println (str "glimmer-uikit: uncaught " nm ": " why))
+          (println "  the process aborts now; the Objective-C exception cannot be caught from jolt.")
+          (when-let [dump (resolve 'jolt.host/backtrace-string)]
+            (when-let [bt (try (dump) (catch :default _ nil))]
+              (println "  jolt trace:") (println bt)))
+          (flush))))
+    [:pointer] :void :collect-safe))
+(defn install-uncaught-exception-report!
+  "Have an uncaught NSException print its name, reason and the jolt trace
+  before the abort. Called by run!; harmless to call twice."
+  []
+  (ns-set-uncaught-exception-handler uncaught-report))
 (defn stop-app! [app] (objc-msg-send-1pvoid app (sel "stop:") ffi/null))
 (defn terminate-app! [app] (objc-msg-send-1pvoid app (sel "terminate:") ffi/null))
 (defn activate! [app] (objc-msg-send-1intvoid app (sel "activateIgnoringOtherApps:") 1))
