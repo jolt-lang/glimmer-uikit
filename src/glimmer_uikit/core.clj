@@ -104,6 +104,7 @@
   (let [{:keys [title width height auto-quit-ms]
          :or {title "glimmer" width 400 height 300}} opts
         _    (u/objc-autorelease-pool-push)
+        _    (u/install-uncaught-exception-report!)
         app  (u/shared-application)
         _    (u/set-activation-policy! app u/ACTIVATION-REGULAR)
         _    (u/set-app-delegate! app w/invoker)
