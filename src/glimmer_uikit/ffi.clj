@@ -161,12 +161,16 @@
   "CFStringCreateWithCString" [:pointer :string :int64] :pointer)
 
 (def ^:private kCFRunLoopDefaultMode
-  ;; kCFStringEncodingUTF8
-  (cf-string-create-with-cstring ffi/null "kCFRunLoopDefaultMode" 134217984))
+  ;; kCFStringEncodingUTF8. A delay, not a value: creating the string is a
+  ;; foreign call, and a foreign procedure resolves its entry the first time it
+  ;; runs. Made at load, this was the one call that ran on every platform --
+  ;; requiring the namespace on Linux raised "no entry for
+  ;; CFStringCreateWithCString" before any macOS guard could matter.
+  (delay (cf-string-create-with-cstring ffi/null "kCFRunLoopDefaultMode" 134217984)))
 
 (defn default-mode
   "The CFString naming the run loop's default mode (retained by the loop)."
-  [] kCFRunLoopDefaultMode)
+  [] @kCFRunLoopDefaultMode)
 
 ;; --- selector / class caches -------------------------------------------------
 (def ^:private sel-cache (atom {}))
