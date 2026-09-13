@@ -40,6 +40,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- glimmer is pinned at v0.1.1. Its reconciler disposes the component watchers
+  under a native element that it replaces with one of another tag, so they no
+  longer render into a released view.
 - The label prop `:date-style` is now `:date-markup`. It holds Pango span
   attributes, and the old name read like `DateFormatter`'s `dateStyle`.
 - `glimmer-uikit.ffi/format-date` takes the date style and the time style, and
