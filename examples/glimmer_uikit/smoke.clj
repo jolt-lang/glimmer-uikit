@@ -1,11 +1,11 @@
-(ns glimmer-ios.smoke
+(ns glimmer-uikit.smoke
   "Runs the counter and taps + 1 twice from a worker thread, through the
   backend's scheduler. simctl cannot tap, so the app taps itself and prints
   the count. Expected on the console: smoke: count = 2"
-  (:require [glimmer-ios.counter :as counter]
+  (:require [glimmer-uikit.counter :as counter]
             [glimmer.core :as ui]
-            [glimmer-ios.core :as ios]
-            [glimmer-ios.ffi :as u]))
+            [glimmer-uikit.core :as ios]
+            [glimmer-uikit.ffi :as u]))
 
 (defn- find-native
   "Search glimmer's instance tree, depth first, for a :native node that

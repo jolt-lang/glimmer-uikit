@@ -20,16 +20,16 @@
 
 !/examples/
 !/examples/Info.plist
-!/examples/glimmer_ios/
-!/examples/glimmer_ios/*.clj
+!/examples/glimmer_uikit/
+!/examples/glimmer_uikit/*.clj
 
 !/scripts/
 !/scripts/bundle
 
 !/src/
-!/src/glimmer_ios/
-!/src/glimmer_ios/*.clj
+!/src/glimmer_uikit/
+!/src/glimmer_uikit/*.clj
 
 !/test/
-!/test/glimmer_ios/
-!/test/glimmer_ios/*.clj
+!/test/glimmer_uikit/
+!/test/glimmer_uikit/*.clj

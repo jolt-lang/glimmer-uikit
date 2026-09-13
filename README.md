@@ -1,9 +1,9 @@
-# glimmer-ios
+# glimmer-uikit
 
 The **UIKit** backend for [glimmer](https://github.com/jolt-lang/glimmer), the
 reactive Clojure(-like) UI framework for [jolt](https://github.com/jolt-lang/jolt).
-Where [glimmer-uikit](https://github.com/jolt-lang/glimmer-uikit) renders into
-macOS windows, glimmer-ios renders the same hiccup into real iPhone views —
+Where [glimmer-appkit](https://github.com/jolt-lang/glimmer-appkit) renders into
+macOS windows, glimmer-uikit renders the same hiccup into real iPhone views —
 `UIStackView`/`UILabel`/`UIButton`, driven through the Objective-C runtime by a
 plain C FFI (no bridging headers, no Objective-C source).
 
@@ -16,7 +16,7 @@ through `glimmer.backend`.
 (ns myapp
   (:require [glimmer.ratom :refer [atom]]
             [glimmer.core :as ui]
-            [glimmer-ios.core]))              ; installs the UIKit backend
+            [glimmer-uikit.core]))              ; installs the UIKit backend
 
 (defn counter []
   (let [count (atom 0)]
@@ -48,7 +48,7 @@ calls through libffi, since iOS forbids generating code at run time) for a phone
 for both. `scripts/bundle` looks for them at `~/dev/pack-tarm64ios-sim` and
 `~/dev/pack-tpb64l-ios`, or wherever `PACK_SIM` and `PACK_DEVICE` point.
 
-UIKit is loaded by `glimmer-ios.ffi/load-uikit!` from inside the app loop, never
+UIKit is loaded by `glimmer-uikit.ffi/load-uikit!` from inside the app loop, never
 at require time. Nothing is declared under `:jolt/native`: `jolt build` loads
 every namespace on the macOS host before it emits code, and the headless test
 suite (`jolt -M:test`) runs on Linux CI, where no Objective-C runtime exists.
@@ -116,10 +116,10 @@ view controller's view, pinned to the safe area.
 - Scroll: `:spacing`
 
 UIKit has no checkbox control; AppKit's `NSButton` is one, which is why
-glimmer-uikit's `:checkbutton` can wrap it. Here a `:checkbutton` is a button
+glimmer-appkit's `:checkbutton` can wrap it. Here a `:checkbutton` is a button
 with no title whose tile is the box: empty when inactive, and with an SF Symbol
 checkmark centred in it when `:active`. The props and the event are
-glimmer-uikit's, so the same hiccup works on both backends.
+glimmer-appkit's, so the same hiccup works on both backends.
 
 **Events:**
 
@@ -138,7 +138,7 @@ back into its own handler.
 
 A label's `:markup` prop takes a Pango markup string, or hiccup data that is
 validated and serialized for you — the same vocabulary glimmer-gtk and
-glimmer-uikit use, so the same tree works on all three:
+glimmer-appkit use, so the same tree works on all three:
 
 ```clojure
 [:label {:markup [:span {:foreground "#8e939d"} "Nothing to do yet"]}]
@@ -193,17 +193,17 @@ render, not the mount:
 
 ## Lifecycle
 
-`glimmer-ios.core/on-lifecycle!` registers one zero-arg handler per event:
+`glimmer-uikit.core/on-lifecycle!` registers one zero-arg handler per event:
 `:resign-active`, `:background`, `:foreground`, `:active`, `:terminate`. `nil`
 removes it. Each event is also logged to stdout with a timestamp, which is what
 `jolt console` shows.
 
 ## Extending the widget set
 
-A consumer can teach glimmer-ios new hiccup tags at load time:
+A consumer can teach glimmer-uikit new hiccup tags at load time:
 
 ```clojure
-(require '[glimmer-ios.widget :as w])
+(require '[glimmer-uikit.widget :as w])
 
 (w/register-widget! :my-thing
   {:ctor      (fn [props] (make-the-view props))
@@ -221,7 +221,7 @@ only `:on-click` and `:on-toggled` come with a target already built.
 
 Three namespaces:
 
-- **`glimmer-ios.ffi`** — the Objective-C runtime and UIKit, through `jolt.ffi`:
+- **`glimmer-uikit.ffi`** — the Objective-C runtime and UIKit, through `jolt.ffi`:
   `objc_getClass`/`sel_registerName`, `objc_msgSend` bound at fixed arities
   (struct args flattened into doubles — a `CGRect` or `UIEdgeInsets` is an HFA of
   four doubles, so a flattened call passes exactly the registers a real method
@@ -232,12 +232,12 @@ Three namespaces:
   `nsvalue->doubles` and `value-for-key` for a struct property, `timer!`,
   `open-url!`, `bundle-version` and `system-image`. `BOOL` returns are `:uint8`,
   because jolt's `:char` is a Scheme character. Nothing runs at load.
-- **`glimmer-ios.widget`** — hiccup to UIKit: tag to constructor, props to
+- **`glimmer-uikit.widget`** — hiccup to UIKit: tag to constructor, props to
   setters, `:on-*` to target/action (a dynamic `GlimmerTarget` ObjC class whose
   IMP is a jolt `foreign-callable`), Pango markup to `NSAttributedString`, and
   container child management. The tag and signal registries are open
   (`register-widget!`, `register-signal!`).
-- **`glimmer-ios.core`** — the backend map handed to `glimmer.backend/register!`,
+- **`glimmer-uikit.core`** — the backend map handed to `glimmer.backend/register!`,
   the app loop (a `GlimmerAppDelegate` class registered at run time, handed by
   name to `UIApplicationMain`, which mounts the root in
   `application:didFinishLaunchingWithOptions:`), the lifecycle hooks, and the

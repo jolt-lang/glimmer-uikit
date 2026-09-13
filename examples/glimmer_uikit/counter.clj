@@ -1,12 +1,12 @@
-(ns glimmer-ios.counter
+(ns glimmer-uikit.counter
   "A reactive counter — the canonical reagent-style demo, over UIKit.
 
   The count lives in a reactive atom. Tapping a button swaps it, and glimmer
   re-renders the label in place. The atom is a top-level var so that
-  glimmer-ios.smoke can read it."
+  glimmer-uikit.smoke can read it."
   (:require [glimmer.ratom :as r]
             [glimmer.core :as ui]
-            [glimmer-ios.core]))   ; installs the UIKit backend
+            [glimmer-uikit.core]))   ; installs the UIKit backend
 
 (defonce clicks (r/atom 0))
 

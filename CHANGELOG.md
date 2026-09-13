@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- The UIKit backend for glimmer. Requiring `glimmer-ios.core` installs it, and
+- The UIKit backend for glimmer. Requiring `glimmer-uikit.core` installs it, and
   `glimmer.core/run` starts the app.
 - Containers: `:box`, `:hbox`, `:vbox`, `:layers` and `:scroll`.
 - Widgets: `:button`, `:checkbutton`, `:label`, `:image` and `:gradient`.
@@ -19,9 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Layout props for a phone screen: `:vfill`, `:full-bleed` and `:safe` for the
   safe area, `:center-y`, and `:height-anchor` with `:height-like`.
 - Dates formatted by the phone: `:date` on a label, `:label-date` on a button.
-- `glimmer-ios.core/on-lifecycle!` for the app's lifecycle events, and
-  `glimmer-ios.core/schedule!` to run work on the main thread.
-- `glimmer-ios.widget/register-widget!` and `register-signal!` to add tags and
+- `glimmer-uikit.core/on-lifecycle!` for the app's lifecycle events, and
+  `glimmer-uikit.core/schedule!` to run work on the main thread.
+- `glimmer-uikit.widget/register-widget!` and `register-signal!` to add tags and
   events.
-- Helpers in `glimmer-ios.ffi` for system frameworks, Objective-C blocks,
+- Helpers in `glimmer-uikit.ffi` for system frameworks, Objective-C blocks,
   timers, URLs, the bundle version and SF Symbols.

@@ -1,11 +1,11 @@
-(ns glimmer-ios.widget-test
+(ns glimmer-uikit.widget-test
   "Headless tests for the widget layer's pure functions. No UIKit needed."
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]
             [hiccup2.core :as hiccup]                 ; the oracle; a :test dep only
-            [glimmer-ios.widget :as w]))
+            [glimmer-uikit.widget :as w]))
 
 (deftest escape-markup-escapes-pango-significant-chars
   (testing "leaves plain text untouched"

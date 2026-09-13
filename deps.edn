@@ -5,12 +5,12 @@
 
  :paths ["src"]
 
- ;; glimmer-ios is the UIKit backend for glimmer: glimmer owns the reactive core
+ ;; glimmer-uikit is the UIKit backend for glimmer: glimmer owns the reactive core
  ;; (ratom, component model, reconciler) and knows nothing about any toolkit;
  ;; this project supplies the views, the prop/event wiring and the app loop, and
  ;; registers them through glimmer.backend.
  ;;
- ;; UIKit is NOT declared under :jolt/native — glimmer-ios.ffi loads it from the
+ ;; UIKit is NOT declared under :jolt/native — glimmer-uikit.ffi loads it from the
  ;; app loop, never at require time. `jolt build` loads every namespace on the
  ;; macOS host before it emits code, and the headless tests (`jolt -M:test`) run
  ;; on Linux CI, where no Objective-C runtime exists.
@@ -24,13 +24,13 @@
                   :extra-deps  {org.clojure/test.check {:mvn/version "1.1.1"}
                                 weavejester/hiccup {:git/url "https://github.com/weavejester/hiccup"
                                                     :git/sha "b6b12097ba973141fe87c1b4d6a27ddcce5d5929"}}
-                  :main-opts   ["-m" "glimmer-ios.test-runner"]}
+                  :main-opts   ["-m" "glimmer-uikit.test-runner"]}
 
            ;; An iOS example cannot be `jolt run`; it is cross-compiled into an
            ;; .app. `jolt -A:examples build` puts examples/ on the source roots.
            :examples {:extra-paths ["examples"]}}
 
- ;; bundle takes NS (default glimmer-ios.counter) and TARGET (sim or device).
+ ;; bundle takes NS (default glimmer-uikit.counter) and TARGET (sim or device).
  ;; install, launch, console and smoke need a booted simulator.
  :tasks {test    "jolt -M:test"
          lint    "clj-kondo --lint src test examples --fail-level warning"
@@ -38,4 +38,4 @@
          install "xcrun simctl install booted build/Counter.app"
          launch  "xcrun simctl launch booted com.example.glimmer-uikit-counter"
          console "xcrun simctl launch --console booted com.example.glimmer-uikit-counter"
-         smoke   "NS=glimmer-ios.smoke bash scripts/bundle && xcrun simctl install booted build/Counter.app && xcrun simctl launch --console booted com.example.glimmer-uikit-counter"}}
+         smoke   "NS=glimmer-uikit.smoke bash scripts/bundle && xcrun simctl install booted build/Counter.app && xcrun simctl launch --console booted com.example.glimmer-uikit-counter"}}

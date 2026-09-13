@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # Cross-compile an example into build/Counter.app, for the simulator or a phone.
 #
-#   jolt bundle                        glimmer-ios.counter, for the simulator
-#   NS=glimmer-ios.smoke jolt bundle   another example namespace
+#   jolt bundle                        glimmer-uikit.counter, for the simulator
+#   NS=glimmer-uikit.smoke jolt bundle   another example namespace
 #   TARGET=device jolt bundle          portable bytecode, for a phone
 #
 # PACK_SIM and PACK_DEVICE override where the target packs are.
 set -euo pipefail
 IFS=$'\n\t'
 
-ns="${NS:-glimmer-ios.counter}"
+ns="${NS:-glimmer-uikit.counter}"
 target="${TARGET:-sim}"
 app="build/Counter.app"
 
