@@ -1,10 +1,10 @@
-(ns glimmer-ios.widget
+(ns glimmer-uikit.widget
   "Hiccup -> UIKit views. A data-driven registry maps hiccup tags to view
   constructors, prop maps to UIKit setters, and :on-click (or :on-toggled) to a handler wired
   through the shared action target (a dynamic ObjC class whose method IMP is a
   jolt foreign-callable). This layer creates/patches views and manages container
   children; glimmer's reconciler decides when, reaching these functions through
-  the backend map in glimmer-ios.core.
+  the backend map in glimmer-uikit.core.
 
   Tag mapping:
     :window           the root view controller's view (container only; never created here)
@@ -39,7 +39,7 @@
   :on-click is replaced on every render — glimmer reuses a view whose tag
   matches at the same position across renders, even across screens."
   (:require [clojure.string :as str]
-            [glimmer-ios.ffi :as u]
+            [glimmer-uikit.ffi :as u]
             [jolt.ffi :as ffi]))
 
 ;; --- value marshalling -------------------------------------------------------
@@ -350,7 +350,7 @@
 ;; --- widget specs ------------------------------------------------------------
 ;; Each spec: {:ctor (fn [props] view) :apply (fn [view props]) :container kw}
 (defn- window-spec []
-  {:ctor  (fn [_] (throw (ex-info "glimmer-ios: :window is the root container; hiccup cannot create one" {})))
+  {:ctor  (fn [_] (throw (ex-info "glimmer-uikit: :window is the root container; hiccup cannot create one" {})))
    :apply (fn [_ _] nil)
    :container :window})
 

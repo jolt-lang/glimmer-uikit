@@ -1,4 +1,4 @@
-(ns glimmer-ios.ffi
+(ns glimmer-uikit.ffi
   "Raw bindings for the Objective-C runtime and UIKit, built on jolt.ffi.
 
   Objective-C from a C FFI: classes come from objc_getClass, selectors from
@@ -296,7 +296,7 @@
     (cond (<= 48 n 57) (- n 48)
           (<= 97 n 102) (- n 87)
           (<= 65 n 70) (- n 55)
-          :else (throw (ex-info (str "glimmer-ios: bad hex digit " c) {})))))
+          :else (throw (ex-info (str "glimmer-uikit: bad hex digit " c) {})))))
 (defn- hex->int [s] (reduce (fn [acc c] (+ (* acc 16) (hex-digit c))) 0 s))
 (defn color-hex
   "Parse \"#rrggbb\" (or \"#rgb\") into a UIColor."

@@ -1,4 +1,4 @@
-(ns glimmer-ios.core
+(ns glimmer-uikit.core
   "The UIKit backend for glimmer. Requiring this namespace installs it, after
   which glimmer's portable reconciler (glimmer.core) renders hiccup into real
   UIKit views:
@@ -6,7 +6,7 @@
     (ns myapp
       (:require [glimmer.ratom :as r]
                 [glimmer.core :as ui]
-                [glimmer-ios.core]))            ; installs the UIKit backend
+                [glimmer-uikit.core]))            ; installs the UIKit backend
 
     (defn -main [& _] (ui/run my-app :title \"hello\"))
 
@@ -18,8 +18,8 @@
   that loop. Off-thread re-renders land via a CFRunLoopSource on the main run
   loop."
   (:require [glimmer.backend :as b]
-            [glimmer-ios.ffi :as u]
-            [glimmer-ios.widget :as w]
+            [glimmer-uikit.ffi :as u]
+            [glimmer-uikit.widget :as w]
             [jolt.ffi :as ffi]))
 
 ;; --- marshalling work onto the main loop -------------------------------------
@@ -39,7 +39,7 @@
                         (run! (fn [f]
                                 (try (f)
                                      (catch :default e
-                                       (println "glimmer-ios: scheduled work failed:" e))))
+                                       (println "glimmer-uikit: scheduled work failed:" e))))
                               jobs)))
                     [:pointer] :void :collect-safe)
           ;; CFRunLoopSourceContext on arm64 (all 8-byte fields), as a layout:
@@ -102,7 +102,7 @@
       (u/window-make-key! win)
       (reset! window win))
     (catch :default e
-      (println "glimmer-ios: mount failed:" e)))
+      (println "glimmer-uikit: mount failed:" e)))
   1)                                            ; BOOL YES, as :uint8
 
 (defonce ^:private did-finish-cb
@@ -124,9 +124,9 @@
   nil)
 
 (defn- lifecycle! [event]
-  (println (str "glimmer-ios: " (name event) " @ " (System/currentTimeMillis)))
+  (println (str "glimmer-uikit: " (name event) " @ " (System/currentTimeMillis)))
   (when-let [f (get @lifecycle-handlers event)]
-    (try (f) (catch :default e (println "glimmer-ios: lifecycle handler failed:" e))))
+    (try (f) (catch :default e (println "glimmer-uikit: lifecycle handler failed:" e))))
   0)
 
 (def ^:private lifecycle-selectors

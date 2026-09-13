@@ -1,5 +1,5 @@
-(ns glimmer-ios.test-runner
-  "Entry point for `jolt -M:test`. Requires each glimmer-ios test namespace and
+(ns glimmer-uikit.test-runner
+  "Entry point for `jolt -M:test`. Requires each glimmer-uikit test namespace and
   runs clojure.test against it. Prints a summary; exits non-zero if anything
   failed (so the :test task fails CI)."
   (:require [clojure.test :as t]))
@@ -23,7 +23,7 @@
   (System/exit code))
 
 (defn -main [& _]
-  (let [namespaces '[glimmer-ios.widget-test]]
+  (let [namespaces '[glimmer-uikit.widget-test]]
     (doseq [ns namespaces]
       (try (require ns :reload)
            (catch Exception e
