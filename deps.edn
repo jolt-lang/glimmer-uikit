@@ -30,5 +30,12 @@
            ;; .app. `jolt -A:examples build` puts examples/ on the source roots.
            :examples {:extra-paths ["examples"]}}
 
- :tasks {test "jolt -M:test"
-         lint "clj-kondo --lint src test examples --fail-level warning"}}
+ ;; bundle takes NS (default glimmer-ios.counter) and TARGET (sim or device).
+ ;; install, launch, console and smoke need a booted simulator.
+ :tasks {test    "jolt -M:test"
+         lint    "clj-kondo --lint src test examples --fail-level warning"
+         bundle  "bash scripts/bundle"
+         install "xcrun simctl install booted build/Counter.app"
+         launch  "xcrun simctl launch booted com.example.glimmer-uikit-counter"
+         console "xcrun simctl launch --console booted com.example.glimmer-uikit-counter"
+         smoke   "NS=glimmer-ios.smoke bash scripts/bundle && xcrun simctl install booted build/Counter.app && xcrun simctl launch --console booted com.example.glimmer-uikit-counter"}}

@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# Cross-compile an example into build/Counter.app, for the simulator or a phone.
+#
+#   jolt bundle                        glimmer-ios.counter, for the simulator
+#   NS=glimmer-ios.smoke jolt bundle   another example namespace
+#   TARGET=device jolt bundle          portable bytecode, for a phone
+#
+# PACK_SIM and PACK_DEVICE override where the target packs are.
+set -euo pipefail
+IFS=$'\n\t'
+
+ns="${NS:-glimmer-ios.counter}"
+target="${TARGET:-sim}"
+app="build/Counter.app"
+
+case "$target" in
+  sim)
+    machine=tarm64ios
+    pack="${PACK_SIM:-$HOME/dev/pack-tarm64ios-sim}"
+    arch="-target arm64-apple-ios-simulator -isysroot $(xcrun --sdk iphonesimulator --show-sdk-path)"
+    ffi=""
+    ;;
+  device)
+    # iOS does not let an app generate code at run time, so a phone runs
+    # portable bytecode, and its foreign calls go through libffi.
+    machine=tpb64l
+    pack="${PACK_DEVICE:-$HOME/dev/pack-tpb64l-ios}"
+    arch="-target arm64-apple-ios15.0 -isysroot $(xcrun --sdk iphoneos --show-sdk-path)"
+    ffi="-lffi"
+    ;;
+  *)
+    echo "bundle: TARGET must be sim or device, not '$target'" >&2
+    exit 2
+    ;;
+esac
+
+if [[ ! -d "$pack" ]]; then
+  echo "bundle: no target pack at $pack (see the README's Requirements)" >&2
+  exit 2
+fi
+
+mkdir -p "$app"
+cp examples/Info.plist "$app/Info.plist"
+JOLT_TARGET_CC=clang \
+JOLT_TARGET_ARCH_FLAG="$arch" \
+JOLT_TARGET_LINK_LIBS="-L$pack/lib -llz4 -lz $ffi -framework Foundation -liconv -lm" \
+  jolt -A:examples build -m "$ns" -o "$app/Counter" --target "$machine" --target-pack "$pack"
+rm -rf "$app/Counter.build"
+echo "bundle: $ns -> $app ($target)"
