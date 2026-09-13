@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The repository lives at jolt-lang/glimmer-uikit, and the changelog's links
+  point there.
+
 ## [0.1.0] - 2026-09-13
 
 ### Added
@@ -77,5 +82,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `:margin-right` on a box, and the `:background` option of `ui/run`.
 - Comments and docstrings no longer refer to the app this backend came from.
 
-[Unreleased]: https://github.com/statonjr/glimmer-uikit/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/statonjr/glimmer-uikit/releases/tag/v0.1.0
+[Unreleased]: https://github.com/jolt-lang/glimmer-uikit/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/jolt-lang/glimmer-uikit/releases/tag/v0.1.0
