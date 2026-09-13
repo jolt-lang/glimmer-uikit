@@ -424,6 +424,33 @@
         (>= x 0.66) :right
         :else       :center))
 
+(def ^:private date-style-values
+  {:none   u/DATE-STYLE-NONE
+   :short  u/DATE-STYLE-SHORT
+   :medium u/DATE-STYLE-MEDIUM
+   :long   u/DATE-STYLE-LONG
+   :full   u/DATE-STYLE-FULL})
+
+(defn date-styles
+  "[date-style time-style] as NSDateFormatterStyle values for a :date-format
+  prop {:date style :time style}. A missing key keeps its default, :medium
+  for :date and :none for :time. A style that is not one of the five throws.
+  Public so the mapping is testable without UIKit."
+  [date-format]
+  (let [{:keys [date time]} (merge {:date :medium :time :none} date-format)
+        value (fn [k style]
+                (or (date-style-values style)
+                    (throw (ex-info (str "glimmer-uikit: " style " is not a :date-format "
+                                         k " style; use :none, :short, :medium, :long or :full")
+                                    {:key k :style style}))))]
+    [(value :date date) (value :time time)]))
+
+(defn- format-date
+  "The date prop `millis`, formatted as the widget's :date-format asks."
+  [p millis]
+  (let [[date-style time-style] (date-styles (:date-format p))]
+    (u/format-date millis date-style time-style)))
+
 (defn- ->button-align [x]
   (case (xalign->side x)
     :left   u/BUTTON-ALIGN-LEFT
@@ -437,7 +464,7 @@
    :apply (fn [w p]
             (when (contains? p :label)      (u/button-title! w (:label p)))
             ;; 1.1: a title that begins with a date the backend formats, then :label
-            (when-let [ms (:label-date p)] (u/button-title! w (str (u/format-date ms) (:label p))))
+            (when-let [ms (:label-date p)] (u/button-title! w (str (format-date p ms) (:label p))))
             (when (contains? p :sensitive)
               (u/control-enabled! w (:sensitive p))
               ;; a filled button shows no disabled state of its own — the title
@@ -493,10 +520,10 @@
             (when (contains? p :label)  (u/label-text! w (:label p)))
             (when (contains? p :text)   (u/label-text! w (:text p)))
             (when (contains? p :markup) (u/label-attributed! w (markup->attributed (markup-string (:markup p)))))
-            ;; 1.1: a date the backend formats — styled like :markup when :date-style gives span attributes
+            ;; 1.1: a date the backend formats — styled like :markup when :date-markup gives span attributes
             (when-let [ms (:date p)]
-              (let [s (u/format-date ms)]
-                (if-let [st (:date-style p)]
+              (let [s (format-date p ms)]
+                (if-let [st (:date-markup p)]
                   (u/label-attributed! w (markup->attributed (markup [:span st s])))
                   (u/label-text! w s))))
             (when (contains? p :xalign) (u/label-align! w (->text-align (:xalign p))))

@@ -31,8 +31,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `glimmer-uikit.ffi/framework-path` and `glimmer-uikit.widget/xalign->side`.
 - `glimmer-uikit.ffi/ensure-class!` to find or register an Objective-C class,
   and `glimmer-uikit.ffi/pin-attrs!` to pin a view's edges to another item.
+- `:date-format` on a label with `:date` and a button with `:label-date`:
+  `{:date style :time style}`, where a style is `:none`, `:short`, `:medium`,
+  `:long` or `:full`, as in Foundation's `DateFormatter.Style`. The default is
+  `{:date :medium :time :none}`, which is how dates showed before.
+- `glimmer-uikit.widget/date-styles`, the pure map from `:date-format` to the
+  two `NSDateFormatterStyle` values.
 
 ### Changed
+
+- The label prop `:date-style` is now `:date-markup`. It holds Pango span
+  attributes, and the old name read like `DateFormatter`'s `dateStyle`.
+- `glimmer-uikit.ffi/format-date` takes the date style and the time style, and
+  keeps one formatter for each pair.
 
 - One registry per view in `glimmer-uikit.widget` replaces nine, so `forget!`
   clears a view with one `dissoc`.

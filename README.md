@@ -103,17 +103,25 @@ view controller's view, pinned to the safe area.
 - Button: `:label`, `:sensitive`, `:foreground`, `:font-size`, `:font-weight`
   (`:bold`), `:radius`, `:border` (`[width "#rrggbb" alpha]`), `:padding` (the
   title's left and right inset, in points), `:xalign` (0.0–1.0), `:label-date`
-  (milliseconds, shown as the phone's medium date before `:label`). A title too
-  long for its button loses its tail.
+  (milliseconds, shown as a date before `:label`, formatted by `:date-format`).
+  A title too long for its button loses its tail.
 - Checkbutton: `:active`, `:symbol` (the checkmark's point size, default 24),
   `:foreground` (the checkmark's colour), and a button's props for the box
 - Label: `:label`/`:text`, `:markup` (Pango markup), `:xalign` (0.0–1.0),
   `:wrap` (any value wraps), `:lines` (int), `:ellipsize` (`:start`/`:middle`/`:end`),
-  `:date` (milliseconds, shown as the phone's medium date), `:date-style` (span
-  attributes for `:date`)
+  `:date` (milliseconds, shown as a date in the phone's locale), `:date-format`,
+  `:date-markup` (span attributes for `:date`)
 - Image: `:src` — a file in the app bundle, aspect-filled and clipped
 - Gradient: `:stops` — `[["#rrggbb" alpha location] ...]`, top to bottom
 - Scroll: `:spacing`
+
+**Dates:** `:date-format` is `{:date style :time style}`, on a label with
+`:date` or a button with `:label-date`. A style is `:none`, `:short`,
+`:medium`, `:long` or `:full`, the names of Foundation's
+[`DateFormatter.Style`](https://developer.apple.com/documentation/foundation/dateformatter/style).
+A missing key keeps its default, `{:date :medium :time :none}`. The phone's
+locale decides how each style reads. A style that is not one of the five
+throws.
 
 UIKit has no checkbox control; AppKit's `NSButton` is one, which is why
 glimmer-appkit's `:checkbutton` can wrap it. Here a `:checkbutton` is a button

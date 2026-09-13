@@ -511,22 +511,35 @@
   (pin-attrs! child (safe-area-guide parent) all-edges))
 
 ;; --- a date, the way the phone writes one (1.1) ------------------------------
-(def DATE-STYLE-MEDIUM 2)   ; NSDateFormatterMediumStyle: "Sep 5, 2026"
+;; NSDateFormatterStyle (NSDateFormatter.h)
 (def DATE-STYLE-NONE   0)
+(def DATE-STYLE-SHORT  1)
+(def DATE-STYLE-MEDIUM 2)   ; "Sep 5, 2026" in en_US
+(def DATE-STYLE-LONG   3)
+(def DATE-STYLE-FULL   4)
 
-(defonce ^:private date-formatter
-  (delay
-    (let [f (new-obj "NSDateFormatter")]
-      (objc-msg-send-1i64void f (sel "setDateStyle:") DATE-STYLE-MEDIUM)
-      (objc-msg-send-1i64void f (sel "setTimeStyle:") DATE-STYLE-NONE)
-      f)))
+(defonce ^:private date-formatters (atom {}))   ; [date-style time-style] -> NSDateFormatter
+
+(defn- date-formatter
+  "The NSDateFormatter for one pair of styles, made once, on the main thread,
+  the first time a date is drawn with it."
+  [date-style time-style]
+  (let [k [date-style time-style]]
+    (or (get @date-formatters k)
+        (let [f (new-obj "NSDateFormatter")]
+          (objc-msg-send-1i64void f (sel "setDateStyle:") date-style)
+          (objc-msg-send-1i64void f (sel "setTimeStyle:") time-style)
+          (swap! date-formatters assoc k f)
+          f))))
 
 (defn format-date
-  "`millis` since the epoch as the phone's medium date, in its locale."
-  [millis]
+  "`millis` since the epoch as a date in the phone's locale. `date-style` and
+  `time-style` are NSDateFormatterStyle values (DATE-STYLE-*)."
+  [millis date-style time-style]
   (let [d (objc-msg-send-1d (cls "NSDate") (sel "dateWithTimeIntervalSince1970:")
                             (/ (double millis) 1000.0))]
-    (nsstring->str (objc-msg-send-1p @date-formatter (sel "stringFromDate:") d))))
+    (nsstring->str (objc-msg-send-1p (date-formatter date-style time-style)
+                                     (sel "stringFromDate:") d))))
 
 ;; --- UIScrollView (1.1) -------------------------------------------------------
 (defn scroll-view-new [] (new-obj "UIScrollView"))
