@@ -308,8 +308,15 @@
 
 (defn- remember! [view k v] (swap! views assoc-in [view k] v))
 (defn- recall [view k] (get-in @views [view k]))
+(defn- update-view! [view k f & args] (swap! views update-in [view k] #(apply f % args)))
 (defn- drop! [view k]
   (swap! views (fn [m] (if (contains? m view) (update m view dissoc k) m))))
+(defn- take!
+  "The value remembered under `k` for `view`, dropped as it is taken."
+  [view k]
+  (let [v (recall view k)]
+    (drop! view k)
+    v))
 
 (defn- forget!
   "Drop everything this layer remembers about `widget`'s address. A fresh view
@@ -424,6 +431,33 @@
         (>= x 0.66) :right
         :else       :center))
 
+(def ^:private date-style-values
+  {:none   u/DATE-STYLE-NONE
+   :short  u/DATE-STYLE-SHORT
+   :medium u/DATE-STYLE-MEDIUM
+   :long   u/DATE-STYLE-LONG
+   :full   u/DATE-STYLE-FULL})
+
+(defn date-styles
+  "[date-style time-style] as NSDateFormatterStyle values for a :date-format
+  prop {:date style :time style}. A missing key keeps its default, :medium
+  for :date and :none for :time. A style that is not one of the five throws.
+  Public so the mapping is testable without UIKit."
+  [date-format]
+  (let [{:keys [date time]} (merge {:date :medium :time :none} date-format)
+        value (fn [k style]
+                (or (date-style-values style)
+                    (throw (ex-info (str "glimmer-uikit: " style " is not a :date-format "
+                                         k " style; use :none, :short, :medium, :long or :full")
+                                    {:key k :style style}))))]
+    [(value :date date) (value :time time)]))
+
+(defn- format-date
+  "The date prop `millis`, formatted as the widget's :date-format asks."
+  [p millis]
+  (let [[date-style time-style] (date-styles (:date-format p))]
+    (u/format-date millis date-style time-style)))
+
 (defn- ->button-align [x]
   (case (xalign->side x)
     :left   u/BUTTON-ALIGN-LEFT
@@ -437,7 +471,7 @@
    :apply (fn [w p]
             (when (contains? p :label)      (u/button-title! w (:label p)))
             ;; 1.1: a title that begins with a date the backend formats, then :label
-            (when-let [ms (:label-date p)] (u/button-title! w (str (u/format-date ms) (:label p))))
+            (when-let [ms (:label-date p)] (u/button-title! w (str (format-date p ms) (:label p))))
             (when (contains? p :sensitive)
               (u/control-enabled! w (:sensitive p))
               ;; a filled button shows no disabled state of its own — the title
@@ -493,10 +527,10 @@
             (when (contains? p :label)  (u/label-text! w (:label p)))
             (when (contains? p :text)   (u/label-text! w (:text p)))
             (when (contains? p :markup) (u/label-attributed! w (markup->attributed (markup-string (:markup p)))))
-            ;; 1.1: a date the backend formats — styled like :markup when :date-style gives span attributes
+            ;; 1.1: a date the backend formats — styled like :markup when :date-markup gives span attributes
             (when-let [ms (:date p)]
-              (let [s (u/format-date ms)]
-                (if-let [st (:date-style p)]
+              (let [s (format-date p ms)]
+                (if-let [st (:date-markup p)]
                   (u/label-attributed! w (markup->attributed (markup [:span st s])))
                   (u/label-text! w s))))
             (when (contains? p :xalign) (u/label-align! w (->text-align (:xalign p))))
@@ -621,9 +655,9 @@
   (let [{:keys [value c]} (get (recall widget :constraints) kind)]
     (when (and c (not= value wanted))
       (u/deactivate! c)
-      (swap! views update-in [widget :constraints] dissoc kind))
+      (update-view! widget :constraints dissoc kind))
     (when (and (some? wanted) (or (nil? c) (not= value wanted)))
-      (swap! views assoc-in [widget :constraints kind] {:value wanted :c (make)}))))
+      (update-view! widget :constraints assoc kind {:value wanted :c (make)}))))
 
 (defn- center-y-offset [v] (cond (number? v) (double v) v 0.0 :else nil))
 
@@ -640,10 +674,10 @@
   (cond
     expand?
     (do (u/set-hugging! widget u/PRIORITY-VERY-LOW axis)
-        (swap! views update-in [widget :expanded] (fnil conj #{}) axis))
+        (update-view! widget :expanded (fnil conj #{}) axis))
     (contains? (recall widget :expanded) axis)
     (do (u/set-hugging! widget u/PRIORITY-LOW axis)
-        (swap! views update-in [widget :expanded] disj axis))))
+        (update-view! widget :expanded disj axis))))
 
 (defn apply-widget-props!
   [widget props]
@@ -729,19 +763,16 @@
   (case (container-kind parent-tag)
     :box    (do (u/stack-add-arranged! parent child)
                 (maybe-align! parent child)
-                (when-let [other (recall child :like)]
-                  (u/equal-height! child other)
-                  (drop! child :like))
-                (when-let [offset (recall child :center)]
-                  (center-y! child offset)
-                  (drop! child :center)))
+                (when-let [other (take! child :like)]
+                  (u/equal-height! child other))
+                (when-let [offset (take! child :center)]
+                  (center-y! child offset)))
     :layers (do (u/add-subview! parent child)          ; back to front, in hiccup order
                 (if (recall child :safe?)
                   (u/pin-to-safe-area-all! child parent)
                   (u/pin-to-edges! child parent))
-                (when-let [offset (recall child :center)]
-                  (center-y! child offset)
-                  (drop! child :center)))
+                (when-let [offset (take! child :center)]
+                  (center-y! child offset)))
     :scroll (append-child! :box (scroll-box parent) child)
     :window (do (u/add-subview! parent child)
                 (if (recall child :bleed?)
