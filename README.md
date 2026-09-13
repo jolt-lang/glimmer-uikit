@@ -78,7 +78,9 @@ numbers (rendered as labels). `nil` children are skipped.
 stack vertically and scroll; never sideways).
 
 There is no `:window` tag to write. The root of the tree mounts into the root
-view controller's view, pinned to the safe area.
+view controller's view, pinned to the safe area. `(ui/run root :background
+"#rrggbb")` colours that view; without it, the view takes the system background
+colour. `ui/run`'s other options, such as `:title`, mean nothing on a phone.
 
 **Leaf widgets:** `:button`, `:checkbutton`, `:label`, `:image`, `:gradient`.
 
@@ -99,7 +101,8 @@ view controller's view, pinned to the safe area.
 **Per-tag props:**
 
 - Box: `:orientation`, `:spacing`, `:homogeneous`, `:margin` (all four sides),
-  or `:margin-start`/`:margin-end`/`:margin-top`/`:margin-bottom`
+  or `:margin-start`/`:margin-end`/`:margin-top`/`:margin-bottom`;
+  `:margin-left`/`:margin-right` win over `:margin-start`/`:margin-end`
 - Button: `:label`, `:sensitive`, `:foreground`, `:font-size`, `:font-weight`
   (`:bold`), `:radius`, `:border` (`[width "#rrggbb" alpha]`), `:padding` (the
   title's left and right inset, in points), `:xalign` (0.0–1.0), `:label-date`

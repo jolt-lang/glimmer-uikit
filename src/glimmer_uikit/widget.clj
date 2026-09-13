@@ -173,9 +173,10 @@
 
 (defn span-style
   "The style map a <span>'s attributes imply. Public so the mapping is
-  testable without UIKit; :variant \"smallcaps\", :letter_spacing (Pango
-  units, 1/1024 pt, signed, to :kern in points) and :font_family (a
-  PostScript name) are the 2026-09-05 additions."
+  testable without UIKit. Beside colour, size, weight, strikethrough and
+  underline, it reads :variant \"smallcaps\", :letter_spacing (Pango units,
+  1/1024 pt, signed, to :kern in points) and :font_family (a PostScript
+  name)."
   [a]
   (cond-> {}
     (or (:foreground a) (:color a))
@@ -284,7 +285,7 @@
 
 ;; --- event registry ----------------------------------------------------------
 ;; The :on-* keys glimmer knows. :on-click and a checkbutton's :on-toggled are
-;; wired (#3); the atom lets apply-props! skip event keys.
+;; wired; the atom lets apply-props! skip event keys.
 (def signals (atom {:on-click true :on-toggled true}))
 
 (defn register-signal!
@@ -322,8 +323,8 @@
 
 (defn- forget!
   "Drop everything this layer remembers about `widget`'s address. A fresh view
-  can be allocated where a dead one was — the summary's stat rows are freed
-  when the splash comes, and the splash's new buttons land on their bytes —
+  can be allocated where a dead one was — the views of one screen are freed
+  when the next screen comes, and its new buttons can land on their bytes —
   and this layer's memory is keyed by address. The constraints were the
   first to bite: they said the new button's height was already pinned, so it
   was not, and the button came up at its natural size. Nothing is
@@ -368,9 +369,8 @@
 (defn update-handler!
   "The re-render half of connect-signals!: a widget glimmer reuses at the same
   position keeps its UIKit target but must take the NEW handler, or a button
-  that used to say Start 18 Holes and now says End Round starts a round.
-  (2026-09-05, found on the phone the day the splash and hole screens came to
-  end in two buttons each.) The same for :on-toggled (#3)."
+  reused on a new screen fires the handler of the screen it was built for.
+  The same for :on-toggled."
   [widget props]
   (when-let [h (or (:on-click props) (:on-toggled props))]
     (remember! widget :handler h)))
@@ -479,11 +479,11 @@
 
 (defn- button-spec []
   {:ctor  (fn [p] (doto (u/button-new (or (:label p) ""))
-                    ;; a title too long for the tile loses its tail, not its middle (1.2)
+                    ;; a title too long for the tile loses its tail, not its middle
                     (-> u/button-title-label (u/label-line-break! u/LINE-BREAK-TAIL))))
    :apply (fn [w p]
             (when (contains? p :label)      (u/button-title! w (:label p)))
-            ;; 1.1: a title that begins with a date the backend formats, then :label
+            ;; a title that begins with a date the backend formats, then :label
             (when-let [ms (:label-date p)] (u/button-title! w (str (format-date p ms) (:label p))))
             (when (contains? p :sensitive)
               (u/control-enabled! w (:sensitive p))
@@ -491,13 +491,13 @@
               ;; colour set for normal is used for every state — so dim the whole
               ;; thing; a system button was dimming its blue title already
               (u/set-alpha! w (if (:sensitive p) 1.0 0.4)))
-            ;; polish (2026-09-05): a filled, sized button
+            ;; a filled, sized button
             (when (contains? p :foreground) (u/button-title-color! w (u/color-hex (:foreground p))))
             (when-let [[size weight] (button-font-args p)]
               (u/set-font! (u/button-title-label w) (u/system-font size weight)))
             (when (contains? p :radius)     (u/layer-corner-radius! (u/layer w) (:radius p)))
-            (when-let [pad (:padding p)]    (u/button-content-insets! w 0 pad 0 pad))   ; #18
-            (when (contains? p :xalign)                                                  ; #18
+            (when-let [pad (:padding p)]    (u/button-content-insets! w 0 pad 0 pad))
+            (when (contains? p :xalign)
               (u/button-horizontal-alignment! w (->button-align (:xalign p))))
             (when-let [[width hex alpha] (:border p)] (u/layer-border! (u/layer w) width (u/color-hex-alpha hex alpha))))
    :reset (fn [w gone p]
@@ -519,8 +519,8 @@
   "A checkbox, which UIKit does not have: a system button with no title whose
   tile IS the box — empty when not :active, and an SF Symbol checkmark for
   its image when it is, which UIKit centres in the tile exactly, where a
-  glyph in the title sat a little high and a little left (#3, the first
-  user feedback). :symbol is the checkmark's point size; :foreground tints
+  glyph in the title sits a little high and a little left. :symbol is the
+  checkmark's point size; :foreground tints
   it. Everything else — background, radius, size, insets — is the button's."
   []
   (let [button (button-spec)
@@ -558,7 +558,7 @@
             (when (contains? p :label)  (u/label-text! w (:label p)))
             (when (contains? p :text)   (u/label-text! w (:text p)))
             (when (contains? p :markup) (u/label-attributed! w (markup->attributed (markup-string (:markup p)))))
-            ;; 1.1: a date the backend formats — styled like :markup when :date-markup gives span attributes
+            ;; a date the backend formats — styled like :markup when :date-markup gives span attributes
             (when-let [ms (:date p)]
               (let [s (format-date p ms)]
                 (if-let [st (:date-markup p)]
@@ -584,7 +584,7 @@
             (when (or (gone :wrap) (gone :ellipsize)) (u/label-line-break! w u/LINE-BREAK-TAIL)))
    :container :none})
 
-;; --- a photograph behind the type (2026-09-05) -------------------------------
+;; --- an image from the bundle, a gradient, a plain view ----------------------
 (defn- image-spec []
   {:ctor  (fn [_] (let [v (u/image-view-new)]
                     (u/set-content-mode! v u/CONTENT-MODE-SCALE-ASPECT-FILL)
@@ -611,7 +611,7 @@
    :apply (fn [_ _] nil)
    :container :layers})
 
-;; --- a scroll view (1.1) ------------------------------------------------------
+;; --- a scroll view ------------------------------------------------------------
 ;; A UIScrollView whose one subview is a vertical stack the constructor makes:
 ;; the stack's edges pinned to the scroll view's contentLayoutGuide (that is
 ;; what makes the content size) and its width to the frameLayoutGuide's (that
@@ -653,7 +653,7 @@
   (atom {:window   (window-spec)
          :box      (box-spec)
          :button   (button-spec)
-         :checkbutton (checkbutton-spec)   ; #3
+         :checkbutton (checkbutton-spec)
          :label    (label-spec)
          :image    (image-spec)
          :gradient (gradient-spec)
@@ -695,10 +695,9 @@
 ;; --- constraints that follow props ------------------------------------------
 ;; glimmer reuses a view whose tag matches at the same position across
 ;; renders — across screens too — so a constraint a prop asked for must go
-;; when the prop goes, or the hole screen's rows box comes back as the splash's
-;; title box still pinned to the centre (or the other way round, which is how
-;; this was found). One constraint per [view kind]; replaced when its value
-;; changes, dropped when the prop is absent.
+;; when the prop goes, or a box centred on one screen stays centred when a
+;; later screen reuses it for something else. One constraint per [view kind];
+;; replaced when its value changes, dropped when the prop is absent.
 (defn- constrain!
   "Keep exactly one constraint of `kind` on `widget`: `wanted` is the prop's
   value or nil, `make` builds and activates the constraint for it."
@@ -736,12 +735,12 @@
   (hug! widget u/AXIS-VERTICAL   (:vexpand props))
   (when (or (contains? props :halign) (contains? props :valign))
     (remember! widget :alignment [(:halign props) (:valign props)]))
-  ;; polish (2026-09-05): any view can be painted and sized; a root can fill
+  ;; any view can be painted and sized; a root can fill
   (when (contains? props :background) (u/set-background! widget (u/color-hex (:background props))))
   (constrain! widget :width  (:width props)  #(u/size-constraint! widget u/ATTR-WIDTH  (:width props)))
   (constrain! widget :height (:height props) #(u/size-constraint! widget u/ATTR-HEIGHT (:height props)))
   (when (:vfill props)                (remember! widget :fill? true))
-  ;; a photograph behind the type (2026-09-05)
+  ;; transparency, and what a root or a :layers child fills
   (when (contains? props :alpha)      (u/set-alpha! widget (:alpha props)))
   (when (:full-bleed props)           (remember! widget :bleed? true))
   (when (:safe props)                 (remember! widget :safe? true))
@@ -863,11 +862,6 @@
       (realign! parent))
     (update-handler! widget props)))
 
-(defn show!
-  "Views are visible by default; :visible false hides instead."
-  [widget props]
-  (u/set-hidden! widget (false? (:visible props))))
-
 ;; --- container child management ----------------------------------------------
 (defn- maybe-align!
   "Derive the parent stack's alignment from a child's :halign/:valign."
@@ -920,8 +914,8 @@
               (u/stack-insert-arranged! parent new-child (max i 0))
               (remember! new-child :stack parent)
               (maybe-align! parent new-child))
-    ;; a :layers child replaced lands in front: remove then append. The splash's
-    ;; layers never change tag at a position, so nothing here reorders.
+    ;; a :layers child replaced lands in front: remove then append. Nothing here
+    ;; puts it back at its old depth.
     :layers (do (remove-child! parent-tag parent old-child)
                 (append-child! parent-tag parent new-child))
     :scroll (replace-child! :box (scroll-box parent) old-child new-child)
