@@ -293,31 +293,55 @@
   (swap! signals assoc event true)
   nil)
 
+;; --- what this layer remembers about a view ---------------------------------
+;; One map per view address. The keys:
+;;   :handler      the zero-arg :on-click or :on-toggled handler
+;;   :alignment    [halign valign], for the parent stack
+;;   :expanded     the axes whose hugging this layer lowered
+;;   :constraints  kind -> {:value v :c NSLayoutConstraint}
+;;   :fill?        a root that pins its bottom too (:vfill)
+;;   :bleed?       a root pinned to the window's edges, not its safe area (:full-bleed)
+;;   :safe?        a :layers child pinned to its safe area, not its edges (:safe)
+;;   :like         the :height-anchor view to match, once both are in a stack
+;;   :center       the :center-y offset, until the view has a parent
+(defonce ^:private views (atom {}))
+
+(defn- remember! [view k v] (swap! views assoc-in [view k] v))
+(defn- recall [view k] (get-in @views [view k]))
+(defn- drop! [view k]
+  (swap! views (fn [m] (if (contains? m view) (update m view dissoc k) m))))
+
+(defn- forget!
+  "Drop everything this layer remembers about `widget`'s address. A fresh view
+  can be allocated where a dead one was — the summary's stat rows are freed
+  when the splash comes, and the splash's new buttons land on their bytes —
+  and this layer's memory is keyed by address. The constraints were the
+  first to bite: they said the new button's height was already pinned, so it
+  was not, and the button came up at its natural size. Nothing is
+  deactivated: the constraints belonged to views that no longer exist."
+  [widget]
+  (swap! views dissoc widget))
+
 ;; --- the shared action target ------------------------------------------------
 ;; One dynamic ObjC class ("GlimmerTarget") carries every :on-click and :on-toggled. Its fire:
 ;; IMP is a jolt foreign-callable that dispatches on the sender pointer, so a
 ;; single instance is every button's target. Built lazily: this namespace loads
 ;; on the host during jolt build and on Linux CI, where objc_getClass does not
 ;; exist; the first :on-click forces it, on the main thread, inside the app.
-(defonce ^:private actions (atom {}))      ; control -> zero-arg handler
 
 (defonce ^:private fire-cb
   (delay
     (ffi/foreign-callable
       (fn [_self _cmd sender]
-        (when-let [h (get @actions sender)] (h))
+        (when-let [h (recall sender :handler)] (h))
         0)
       [:pointer :pointer :pointer] :void :collect-safe)))
 
 (defonce ^:private target
   (delay
-    (let [existing (u/objc-get-class "GlimmerTarget")]
-      (if (and existing (not (ffi/null? existing)))
-        (u/objc-msg-send-0 existing (u/sel "new"))
-        (let [c (u/objc-allocate-class-pair (u/cls "NSObject") "GlimmerTarget" 0)]
-          (u/class-add-method c (u/sel "fire:") @fire-cb "v@:@")
-          (u/objc-register-class-pair c)
-          (u/objc-msg-send-0 c (u/sel "new")))))))
+    (u/objc-msg-send-0 (u/ensure-class! "GlimmerTarget" "NSObject"
+                                        #(u/class-add-method % (u/sel "fire:") @fire-cb "v@:@"))
+                       (u/sel "new"))))
 
 (defn invoker
   "The shared GlimmerTarget instance (created on first use)."
@@ -325,11 +349,11 @@
 
 (defn connect-signals!
   "Wire :on-click, or a checkbutton's :on-toggled, on `widget`. The
-  target/action is added once at mount; the handler itself lives in `actions`
+  target/action is added once at mount; the handler itself lives in `views`
   and is replaced on every render — see update-handler!."
   [widget props]
   (when-let [h (or (:on-click props) (:on-toggled props))]
-    (swap! actions assoc widget h)
+    (remember! widget :handler h)
     (u/add-target! widget (invoker) (u/sel "fire:") u/EVENT-TOUCH-UP-INSIDE)))
 
 (defn update-handler!
@@ -340,15 +364,16 @@
   end in two buttons each.) The same for :on-toggled (#3)."
   [widget props]
   (when-let [h (or (:on-click props) (:on-toggled props))]
-    (swap! actions assoc widget h)))
+    (remember! widget :handler h)))
 
 (defn handler-for
   "The zero-arg handler a widget would fire, or nil. For tests."
   [widget]
-  (get @actions widget))
+  (recall widget :handler))
 
 ;; --- widget specs ------------------------------------------------------------
-;; Each spec: {:ctor (fn [props] view) :apply (fn [view props]) :container kw}
+;; Each spec: {:ctor (fn [props] view) :apply (fn [view props]) :container kw
+;;             :connect (fn [view props])?}
 (defn- window-spec []
   {:ctor  (fn [_] (throw (ex-info "glimmer-uikit: :window is the root container; hiccup cannot create one" {})))
    :apply (fn [_ _] nil)
@@ -391,6 +416,20 @@
   (when-let [size (:font-size p)]
     [(double size) (if (= :bold (:font-weight p)) u/FONT-WEIGHT-BOLD u/FONT-WEIGHT-REGULAR)]))
 
+(defn xalign->side
+  "The side an :xalign from 0 to 1 puts content on: :left, :center or :right.
+  Public so the thresholds are testable without UIKit."
+  [x]
+  (cond (<= x 0.34) :left
+        (>= x 0.66) :right
+        :else       :center))
+
+(defn- ->button-align [x]
+  (case (xalign->side x)
+    :left   u/BUTTON-ALIGN-LEFT
+    :center u/BUTTON-ALIGN-CENTER
+    :right  u/BUTTON-ALIGN-RIGHT))
+
 (defn- button-spec []
   {:ctor  (fn [p] (doto (u/button-new (or (:label p) ""))
                     ;; a title too long for the tile loses its tail, not its middle (1.2)
@@ -412,10 +451,7 @@
             (when (contains? p :radius)     (u/layer-corner-radius! (u/layer w) (:radius p)))
             (when-let [pad (:padding p)]    (u/button-content-insets! w 0 pad 0 pad))   ; #18
             (when (contains? p :xalign)                                                  ; #18
-              (u/button-horizontal-alignment! w (let [x (:xalign p)]
-                                                  (cond (<= x 0.34) u/BUTTON-ALIGN-LEFT
-                                                        (>= x 0.66) u/BUTTON-ALIGN-RIGHT
-                                                        :else       u/BUTTON-ALIGN-CENTER))))
+              (u/button-horizontal-alignment! w (->button-align (:xalign p))))
             (when-let [[width hex alpha] (:border p)] (u/layer-border! (u/layer w) width (u/color-hex-alpha hex alpha))))
    :container :none})
 
@@ -439,10 +475,10 @@
      :container :none}))
 
 (defn- ->text-align [x]
-  (cond
-    (<= x 0.34) u/TEXT-ALIGN-LEFT
-    (>= x 0.66) u/TEXT-ALIGN-RIGHT
-    :else       u/TEXT-ALIGN-CENTER))
+  (case (xalign->side x)
+    :left   u/TEXT-ALIGN-LEFT
+    :center u/TEXT-ALIGN-CENTER
+    :right  u/TEXT-ALIGN-RIGHT))
 
 (defn- ->line-break [e]
   (case e
@@ -504,7 +540,8 @@
 ;; registry maps it to its stack and each operation delegates to the :box arm
 ;; with the stack as parent — so maybe-align! sees a row's :halign :fill, or
 ;; the rows would sit centred and narrow.
-(declare forget!)
+;; Not in `views`: create! forgets the scroll view after its :ctor records the
+;; stack here.
 (def ^:private scroll-boxes (atom {}))   ; scroll view -> its content stack
 
 (defn- scroll-spec []
@@ -541,7 +578,8 @@
          :scroll   (scroll-spec)}))
 
 (defn register-widget!
-  "Add a widget spec {:ctor :apply :container} under `tag`."
+  "Add a widget spec {:ctor :apply :container :connect?} under `tag`. create!
+  calls the optional :connect once, last, to wire the view's own events."
   [tag spec]
   (swap! specs assoc tag spec)
   nil)
@@ -554,8 +592,6 @@
   (:container (spec-for tag) :none))
 
 ;; --- universal props (apply to every widget, every tag) ----------------------
-(def ^:private alignments (atom {}))    ; view -> [halign valign]
-
 (defn- ->stack-alignment [halign valign axis]
   (if (= axis u/AXIS-VERTICAL)
     (case halign
@@ -569,13 +605,7 @@
       :fill   u/ALIGN-FILL
       u/ALIGN-CENTER)))
 
-(def ^:private fills (atom #{}))         ; roots that pin their bottom too (:vfill)
-(def ^:private bleeds (atom #{}))        ; roots pinned to the window's edges, not its safe area (:full-bleed)
-(def ^:private safes  (atom #{}))        ; children of a :layers pinned to its safe area, not its edges (:safe)
 (def ^:private anchors (atom {}))        ; :height-anchor group -> view, for :height-like
-(def ^:private likes   (atom {}))        ; view -> the anchor it ties to, once both are in a stack
-(def ^:private centers (atom {}))        ; view -> :center-y offset, until the view has a parent
-(def ^:private expands (atom #{}))       ; [view axis] whose hugging this layer lowered
 
 ;; --- constraints that follow props ------------------------------------------
 ;; glimmer reuses a view whose tag matches at the same position across
@@ -584,19 +614,16 @@
 ;; title box still pinned to the centre (or the other way round, which is how
 ;; this was found). One constraint per [view kind]; replaced when its value
 ;; changes, dropped when the prop is absent.
-(def ^:private constraints (atom {}))    ; [view kind] -> {:value v :c NSLayoutConstraint}
-
 (defn- constrain!
   "Keep exactly one constraint of `kind` on `widget`: `wanted` is the prop's
   value or nil, `make` builds and activates the constraint for it."
   [widget kind wanted make]
-  (let [k (list widget kind)
-        {:keys [value c]} (get @constraints k)]
+  (let [{:keys [value c]} (get (recall widget :constraints) kind)]
     (when (and c (not= value wanted))
       (u/deactivate! c)
-      (swap! constraints dissoc k))
+      (swap! views update-in [widget :constraints] dissoc kind))
     (when (and (some? wanted) (or (nil? c) (not= value wanted)))
-      (swap! constraints assoc k {:value wanted :c (make)}))))
+      (swap! views assoc-in [widget :constraints kind] {:value wanted :c (make)}))))
 
 (defn- center-y-offset [v] (cond (number? v) (double v) v 0.0 :else nil))
 
@@ -610,26 +637,29 @@
   "Lower the hugging priority along `axis` for an expand prop, and put it back
   to UIKit's default (250) when a view this layer lowered no longer asks."
   [widget axis expand?]
-  (let [k [widget axis]]
-    (cond
-      expand?             (do (u/set-hugging! widget u/PRIORITY-VERY-LOW axis) (swap! expands conj k))
-      (contains? @expands k) (do (u/set-hugging! widget u/PRIORITY-LOW axis) (swap! expands disj k)))))
+  (cond
+    expand?
+    (do (u/set-hugging! widget u/PRIORITY-VERY-LOW axis)
+        (swap! views update-in [widget :expanded] (fnil conj #{}) axis))
+    (contains? (recall widget :expanded) axis)
+    (do (u/set-hugging! widget u/PRIORITY-LOW axis)
+        (swap! views update-in [widget :expanded] disj axis))))
 
 (defn apply-widget-props!
   [widget props]
   (hug! widget u/AXIS-HORIZONTAL (:hexpand props))
   (hug! widget u/AXIS-VERTICAL   (:vexpand props))
   (when (or (contains? props :halign) (contains? props :valign))
-    (swap! alignments assoc widget [(:halign props) (:valign props)]))
+    (remember! widget :alignment [(:halign props) (:valign props)]))
   ;; polish (2026-09-05): any view can be painted and sized; a root can fill
   (when (contains? props :background) (u/set-background! widget (u/color-hex (:background props))))
   (constrain! widget :width  (:width props)  #(u/size-constraint! widget u/ATTR-WIDTH  (:width props)))
   (constrain! widget :height (:height props) #(u/size-constraint! widget u/ATTR-HEIGHT (:height props)))
-  (when (:vfill props)                (swap! fills conj widget))
+  (when (:vfill props)                (remember! widget :fill? true))
   ;; a photograph behind the type (2026-09-05)
   (when (contains? props :alpha)      (u/set-alpha! widget (:alpha props)))
-  (when (:full-bleed props)           (swap! bleeds conj widget))
-  (when (:safe props)                 (swap! safes conj widget))
+  (when (:full-bleed props)           (remember! widget :bleed? true))
+  (when (:safe props)                 (remember! widget :safe? true))
   ;; two views the same height: the anchor is registered under a group name
   ;; (always overwriting, so a stale one from an unmounted screen cannot be
   ;; paired with), and a :height-like view later in the same render remembers
@@ -640,43 +670,25 @@
   (when-let [g (:height-anchor props)] (swap! anchors assoc g widget))
   (when-let [g (:height-like props)]
     (when-let [other (get @anchors g)]
-      (when-not (= other widget) (swap! likes assoc widget other))))
+      (when-not (= other widget) (remember! widget :like other))))
   ;; :center-y (true, or an offset in points): the view's centre is its parent
   ;; stack's centre, the spacers around it taking whatever heights make that
   ;; true. Needs a parent: at create! there is none yet and append-child!
   ;; finishes the job; on a re-render there is, and the constraint is added,
   ;; replaced or dropped right here.
   (let [offset (center-y-offset (:center-y props))
-        had?   (contains? @constraints (list widget :center-y))]
+        had?   (contains? (recall widget :constraints) :center-y)]
     (when (or offset had?)                 ; only then touch the view: the host tests use fake pointers
       (if (u/superview widget)
         (center-y! widget offset)
-        (when offset (swap! centers assoc widget offset))))))
+        (when offset (remember! widget :center offset))))))
 
 ;; --- public create / patch ---------------------------------------------------
-(defn- forget!
-  "Drop everything this layer remembers about `widget`'s address. A fresh view
-  can be allocated where a dead one was — the summary's stat rows are freed
-  when the splash comes, and the splash's new buttons land on their bytes —
-  and every registry here is keyed by address. The constraints one was the
-  first to bite: it said the new button's height was already pinned, so it
-  was not, and the button came up at its natural size. Nothing is
-  deactivated: the constraints belonged to views that no longer exist."
-  [widget]
-  (swap! constraints (fn [m] (into {} (remove (fn [[[w _] _]] (= w widget)) m))))
-  (swap! expands     (fn [s] (into #{} (remove (fn [[w _]] (= w widget)) s))))
-  (swap! alignments dissoc widget)
-  (swap! fills      disj   widget)
-  (swap! bleeds     disj   widget)
-  (swap! safes      disj   widget)
-  (swap! centers    dissoc widget)
-  (swap! likes      dissoc widget)
-  (swap! actions    dissoc widget))
-
 (defn create!
-  "Construct a fresh UIKit view for `tag`, apply `props`, and wire :on-click or :on-toggled.
-  Returns the view pointer. Children are NOT added here — the reconciler
-  appends them so it can reuse existing children across renders."
+  "Construct a fresh UIKit view for `tag`, apply `props`, wire :on-click or
+  :on-toggled, then call the spec's :connect, if any. Returns the view
+  pointer. Children are NOT added here — the reconciler appends them so it
+  can reuse existing children across renders."
   [tag props]
   (let [props (with-orientation tag props)
         s (spec-for tag)
@@ -685,6 +697,7 @@
     ((:apply s) widget props)
     (apply-widget-props! widget props)
     (connect-signals! widget props)
+    (when-let [connect (:connect s)] (connect widget props))
     widget))
 
 (defn apply-props!
@@ -707,7 +720,7 @@
 (defn- maybe-align!
   "Derive the parent stack's alignment from a child's :halign/:valign."
   [parent child]
-  (when-let [[halign valign] (get @alignments child)]
+  (when-let [[halign valign] (recall child :alignment)]
     (u/stack-alignment! parent (->stack-alignment halign valign (u/stack-axis parent)))))
 
 (defn append-child!
@@ -716,25 +729,25 @@
   (case (container-kind parent-tag)
     :box    (do (u/stack-add-arranged! parent child)
                 (maybe-align! parent child)
-                (when-let [other (get @likes child)]
+                (when-let [other (recall child :like)]
                   (u/equal-height! child other)
-                  (swap! likes dissoc child))
-                (when-let [offset (get @centers child)]
+                  (drop! child :like))
+                (when-let [offset (recall child :center)]
                   (center-y! child offset)
-                  (swap! centers dissoc child)))
+                  (drop! child :center)))
     :layers (do (u/add-subview! parent child)          ; back to front, in hiccup order
-                (if (@safes child)
+                (if (recall child :safe?)
                   (u/pin-to-safe-area-all! child parent)
                   (u/pin-to-edges! child parent))
-                (when-let [offset (get @centers child)]
+                (when-let [offset (recall child :center)]
                   (center-y! child offset)
-                  (swap! centers dissoc child)))
+                  (drop! child :center)))
     :scroll (append-child! :box (scroll-box parent) child)
     :window (do (u/add-subview! parent child)
-                (if (@bleeds child)
+                (if (recall child :bleed?)
                   (u/pin-to-edges! child parent)
                   (do (u/pin-to-safe-area! child parent)
-                      (when (@fills child) (u/pin-bottom-to-safe-area! child parent)))))
+                      (when (recall child :fill?) (u/pin-bottom-to-safe-area! child parent)))))
     nil))
 
 (defn remove-child!
