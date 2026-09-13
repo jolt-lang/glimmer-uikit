@@ -19,18 +19,29 @@
   NSInteger/NSUInteger :int64, CGFloat :double, UILayoutPriority :float."
   (:require [jolt.ffi :as ffi]))
 
-;; --- loading UIKit (from -main, never at load) ------------------------------
-(defonce ^:private uikit-loaded? (atom false))
+;; --- loading frameworks (from -main, never at load) -------------------------
+(defonce ^:private frameworks-loaded (atom #{}))
+
+(defn framework-path
+  "The path of the binary in system framework `name`."
+  [name]
+  (str "/System/Library/Frameworks/" name ".framework/" name))
+
+(defn load-framework!
+  "dlopen /System/Library/Frameworks/<name>.framework/<name>. Idempotent;
+  meaningful only in the simulator or on a phone."
+  [name]
+  (when-not (@frameworks-loaded name)
+    (ffi/load-library (framework-path name))
+    (swap! frameworks-loaded conj name))
+  nil)
 
 (defn load-uikit!
   "dlopen UIKit so objc_getClass finds its classes. Idempotent. Only meaningful
   inside the simulator/device process; on the host it throws, which is the
   point — nothing calls it there."
   []
-  (when-not @uikit-loaded?
-    (ffi/load-library "/System/Library/Frameworks/UIKit.framework/UIKit")
-    (reset! uikit-loaded? true))
-  nil)
+  (load-framework! "UIKit"))
 
 ;; --- constants ---------------------------------------------------------------
 ;; UILayoutConstraintAxis
@@ -166,6 +177,18 @@
   [class-name]
   (objc-msg-send-0 (objc-msg-send-0 (cls class-name) (sel "alloc")) (sel "init")))
 
+(defn ensure-class!
+  "The ObjC class `name`. When it does not exist, allocate it under the class
+  named `superclass`, call `add-methods!` with it and register it. Idempotent."
+  [name superclass add-methods!]
+  (let [existing (objc-get-class name)]
+    (if (and existing (not (ffi/null? existing)))
+      existing
+      (let [c (objc-allocate-class-pair (cls superclass) name 0)]
+        (add-methods! c)
+        (objc-register-class-pair c)
+        c))))
+
 ;; --- strings ----------------------------------------------------------------
 (defn nsstring
   "Create an NSString (autoreleased) from a jolt string."
@@ -215,14 +238,19 @@
     (sel "constraintWithItem:attribute:relatedBy:toItem:attribute:multiplier:constant:")
     item1 attr1 RELATION-EQUAL item2 attr2 (double multiplier) (double constant)))
 (defn activate! [c] (objc-msg-send-1intvoid c (sel "setActive:") 1))
+(defn pin-attrs!
+  "Pin each attribute in `attrs` of `child` to the same attribute of `target`,
+  a view or a layout guide."
+  [child target attrs]
+  (set-translates-autoresizing! child false)
+  (doseq [a attrs]
+    (activate! (constraint child a target a 1.0 0.0))))
+(def ^:private all-edges [ATTR-TOP ATTR-LEADING ATTR-TRAILING ATTR-BOTTOM])
 (defn pin-to-safe-area!
   "Pin `child`'s top/leading/trailing to `parent`'s safe-area layout guide. The
   bottom is left free: a stack hugs its content."
   [child parent]
-  (set-translates-autoresizing! child false)
-  (let [guide (safe-area-guide parent)]
-    (doseq [a [ATTR-TOP ATTR-LEADING ATTR-TRAILING]]
-      (activate! (constraint child a guide a 1.0 0.0)))))
+  (pin-attrs! child (safe-area-guide parent) [ATTR-TOP ATTR-LEADING ATTR-TRAILING]))
 
 ;; --- UIStackView ------------------------------------------------------------
 (defn stack-new
@@ -298,16 +326,18 @@
           (<= 65 n 70) (- n 55)
           :else (throw (ex-info (str "glimmer-uikit: bad hex digit " c) {})))))
 (defn- hex->int [s] (reduce (fn [acc c] (+ (* acc 16) (hex-digit c))) 0 s))
-(defn color-hex
-  "Parse \"#rrggbb\" (or \"#rgb\") into a UIColor."
+(defn hex->rgb
+  "Parse \"#rrggbb\" (or \"#rgb\") into [r g b], each from 0 to 1."
   [hex]
   (let [h (subs hex 1)
         h (if (= 3 (count h)) (apply str (mapcat (fn [c] [c c]) h)) h)]
-    (objc-msg-send-4d (cls "UIColor") (sel "colorWithRed:green:blue:alpha:")
-                      (/ (hex->int (subs h 0 2)) 255.0)
-                      (/ (hex->int (subs h 2 4)) 255.0)
-                      (/ (hex->int (subs h 4 6)) 255.0)
-                      1.0)))
+    (mapv #(/ (hex->int (subs h % (+ % 2))) 255.0) [0 2 4])))
+(defn- rgba->color [[r g b] alpha]
+  (objc-msg-send-4d (cls "UIColor") (sel "colorWithRed:green:blue:alpha:") r g b (double alpha)))
+(defn color-hex
+  "Parse \"#rrggbb\" (or \"#rgb\") into a UIColor."
+  [hex]
+  (rgba->color (hex->rgb hex) 1.0))
 (defn attributed-new
   "An NSMutableAttributedString over a plain string."
   [s]
@@ -438,14 +468,9 @@
 
 ;; colours with alpha, and their CGColor for a layer
 (defn color-hex-alpha
-  "\"#rrggbb\" and an alpha 0–1 into a UIColor."
+  "\"#rrggbb\" (or \"#rgb\") and an alpha 0–1 into a UIColor."
   [hex alpha]
-  (let [h (subs hex 1)]
-    (objc-msg-send-4d (cls "UIColor") (sel "colorWithRed:green:blue:alpha:")
-                      (/ (hex->int (subs h 0 2)) 255.0)
-                      (/ (hex->int (subs h 2 4)) 255.0)
-                      (/ (hex->int (subs h 4 6)) 255.0)
-                      (double alpha))))
+  (rgba->color (hex->rgb hex) alpha))
 (defn cg-color [uicolor] (objc-msg-send-0 uicolor (sel "CGColor")))
 
 ;; a border on a layer
@@ -462,13 +487,8 @@
                                [:pointer :pointer] :pointer :collect-safe)))
 (defonce ^:private gradient-class
   (delay
-    (let [existing (objc-get-class "GlimmerGradientView")]
-      (if (and existing (not (ffi/null? existing)))
-        existing
-        (let [c (objc-allocate-class-pair (cls "UIView") "GlimmerGradientView" 0)]
-          (class-add-method (object-get-class c) (sel "layerClass") @layer-class-cb "#@:")
-          (objc-register-class-pair c)
-          c)))))
+    (ensure-class! "GlimmerGradientView" "UIView"
+                   #(class-add-method (object-get-class %) (sel "layerClass") @layer-class-cb "#@:"))))
 (defn gradient-view-new []
   (objc-msg-send-0 (objc-msg-send-0 @gradient-class (sel "alloc")) (sel "init")))
 (defn gradient-stops!
@@ -484,16 +504,11 @@
 (defn pin-to-edges!
   "All four edges of `child` to `parent`'s — full bleed, under the status bar."
   [child parent]
-  (set-translates-autoresizing! child false)
-  (doseq [a [ATTR-TOP ATTR-LEADING ATTR-TRAILING ATTR-BOTTOM]]
-    (activate! (constraint child a parent a 1.0 0.0))))
+  (pin-attrs! child parent all-edges))
 (defn pin-to-safe-area-all!
   "All four edges of `child` to `parent`'s safe-area guide."
   [child parent]
-  (set-translates-autoresizing! child false)
-  (let [guide (safe-area-guide parent)]
-    (doseq [a [ATTR-TOP ATTR-LEADING ATTR-TRAILING ATTR-BOTTOM]]
-      (activate! (constraint child a guide a 1.0 0.0)))))
+  (pin-attrs! child (safe-area-guide parent) all-edges))
 
 ;; --- a date, the way the phone writes one (1.1) ------------------------------
 (def DATE-STYLE-MEDIUM 2)   ; NSDateFormatterMediumStyle: "Sep 5, 2026"
@@ -520,33 +535,20 @@
 (defn pin-to-guide!
   "All four edges of `child` to `guide`'s."
   [child guide]
-  (set-translates-autoresizing! child false)
-  (doseq [a [ATTR-TOP ATTR-LEADING ATTR-TRAILING ATTR-BOTTOM]]
-    (activate! (constraint child a guide a 1.0 0.0))))
+  (pin-attrs! child guide all-edges))
 (defn equal-width!
   "`child`'s width equals `guide`'s."
   [child guide]
   (activate! (constraint child ATTR-WIDTH guide ATTR-WIDTH 1.0 0.0)))
 
-;; --- a framework, a block, a timer, a value (1.2) ---------------------------
-(defonce ^:private frameworks-loaded (atom #{}))
-
-(defn load-framework!
-  "dlopen /System/Library/Frameworks/<name>.framework/<name>. Idempotent;
-  meaningful only in the simulator or on a phone."
-  [name]
-  (when-not (@frameworks-loaded name)
-    (ffi/load-library (str "/System/Library/Frameworks/" name ".framework/" name))
-    (swap! frameworks-loaded conj name))
-  nil)
-
+;; --- a data symbol, a block, a timer, a value (1.2) -------------------------
 (defn data-symbol
   "The address of a data symbol — an extern NSString constant, say — from
   `framework`, or nil when it is not there, which on an older iOS a newer
   constant is not; ffi/read it as :pointer for the object. dlopen of an
   already-loaded framework answers the same handle."
   [framework name]
-  (let [h (c-dlopen (str "/System/Library/Frameworks/" framework ".framework/" framework) RTLD-NOW)
+  (let [h (c-dlopen (framework-path framework) RTLD-NOW)
         p (if (ffi/null? h) ffi/null (c-dlsym h name))]
     (when-not (ffi/null? p) p)))
 

@@ -122,6 +122,32 @@
     (w/apply-props! :checkbutton 4343 {:on-toggled off})
     (is (= off (w/handler-for 4343)) "the handler follows the render, like a button's")))
 
+(deftest a-spec-connect-runs-last-at-create
+  ;; a fake pointer: the probe's ctor makes no view, so this runs on the host
+  (let [seen (atom nil)]
+    (w/apply-props! :button 4646 {:on-click (fn [] :stale)})
+    (w/register-widget! :connect-probe
+                        {:ctor      (fn [_] 4646)
+                         :apply     (fn [_ _] nil)
+                         :container :none
+                         :connect   (fn [widget props]
+                                      (reset! seen [widget props (w/handler-for widget)]))})
+    (is (= 4646 (w/create! :connect-probe {:x 1})))
+    (is (= [4646 {:x 1} nil] @seen) ":connect gets the view and props, after forget!")))
+
+(deftest create-forgets-a-handler-at-a-reused-address
+  (w/apply-props! :button 4747 {:on-click (fn [] :old)})
+  (w/register-widget! :address-probe {:ctor (fn [_] 4747) :apply (fn [_ _] nil) :container :none})
+  (w/create! :address-probe {})
+  (is (nil? (w/handler-for 4747)) "a new view at a freed address inherits no handler"))
+
+(deftest xalign-picks-a-side
+  (is (= :left   (w/xalign->side 0.0)))
+  (is (= :left   (w/xalign->side 0.34)))
+  (is (= :center (w/xalign->side 0.5)))
+  (is (= :right  (w/xalign->side 0.66)))
+  (is (= :right  (w/xalign->side 1.0))))
+
 (deftest button-font-args-map-props-to-a-system-font
   (testing "size and weight"
     (is (= [20.0 0.4] (w/button-font-args {:font-size 20 :font-weight :bold}))))

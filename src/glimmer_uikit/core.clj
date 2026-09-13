@@ -22,6 +22,16 @@
             [glimmer-uikit.widget :as w]
             [jolt.ffi :as ffi]))
 
+;; --- failures ------------------------------------------------------------------
+;; Work that UIKit calls back into must not throw back across the FFI.
+(defn- logged
+  "Call `f` and return its value. When `f` throws, print the failure with
+  `label` and return nil."
+  [label f]
+  (try (f)
+       (catch :default e
+         (println (str "glimmer-uikit: " label " failed:") e))))
+
 ;; --- marshalling work onto the main loop -------------------------------------
 ;; While UIApplicationMain owns the main thread, a ratom mutation made off it
 ;; (a future, a worker) would otherwise reconcile — calling UIKit — off the main
@@ -36,11 +46,7 @@
                       ;; CAS drain: a concurrent (swap! queue conj work) either
                       ;; lands in `jobs` or survives for the next signal.
                       (let [[jobs _] (swap-vals! queue (constantly []))]
-                        (run! (fn [f]
-                                (try (f)
-                                     (catch :default e
-                                       (println "glimmer-uikit: scheduled work failed:" e))))
-                              jobs)))
+                        (run! #(logged "scheduled work" %) jobs)))
                     [:pointer] :void :collect-safe)
           ;; CFRunLoopSourceContext on arm64 (all 8-byte fields), as a layout:
           ;; jolt 0.8.0 swapped ffi/write's value and offset, and write-field
@@ -91,18 +97,17 @@
   "application:didFinishLaunchingWithOptions: — on the main thread, inside
   UIApplicationMain. Window, root view controller, mount, show."
   [_self _cmd _app _opts]
-  (try
-    (let [win  (u/window-new)
-          vc   (u/view-controller-new)
-          view (u/controller-view vc)]
-      (u/set-background! view (if-let [c @root-background] (u/color-hex c) (u/system-background-color)))
-      (u/window-root-controller! win vc)
-      (reset! current-mount (@pending-mount view :window))
-      (force scheduler)                         ; main thread, before anyone posts
-      (u/window-make-key! win)
-      (reset! window win))
-    (catch :default e
-      (println "glimmer-uikit: mount failed:" e)))
+  (logged "mount"
+          (fn []
+            (let [win  (u/window-new)
+                  vc   (u/view-controller-new)
+                  view (u/controller-view vc)]
+              (u/set-background! view (if-let [c @root-background] (u/color-hex c) (u/system-background-color)))
+              (u/window-root-controller! win vc)
+              (reset! current-mount (@pending-mount view :window))
+              (force scheduler)                 ; main thread, before anyone posts
+              (u/window-make-key! win)
+              (reset! window win))))
   1)                                            ; BOOL YES, as :uint8
 
 (defonce ^:private did-finish-cb
@@ -126,7 +131,7 @@
 (defn- lifecycle! [event]
   (println (str "glimmer-uikit: " (name event) " @ " (System/currentTimeMillis)))
   (when-let [f (get @lifecycle-handlers event)]
-    (try (f) (catch :default e (println "glimmer-uikit: lifecycle handler failed:" e))))
+    (logged "lifecycle handler" f))
   0)
 
 (def ^:private lifecycle-selectors
@@ -147,14 +152,12 @@
   "UIApplicationMain instantiates the delegate by class name, so the class must
   exist before the call. Idempotent."
   []
-  (let [existing (u/objc-get-class "GlimmerAppDelegate")]
-    (when (or (nil? existing) (ffi/null? existing))
-      (let [c (u/objc-allocate-class-pair (u/cls "NSObject") "GlimmerAppDelegate" 0)]
-        (u/class-add-method c (u/sel "application:didFinishLaunchingWithOptions:")
-                            @did-finish-cb "c@:@@")
-        (doseq [[event selector] lifecycle-selectors]
-          (u/class-add-method c (u/sel selector) (get @lifecycle-cbs event) "v@:@"))
-        (u/objc-register-class-pair c))))
+  (u/ensure-class! "GlimmerAppDelegate" "NSObject"
+                   (fn [c]
+                     (u/class-add-method c (u/sel "application:didFinishLaunchingWithOptions:")
+                                         @did-finish-cb "c@:@@")
+                     (doseq [[event selector] lifecycle-selectors]
+                       (u/class-add-method c (u/sel selector) (get @lifecycle-cbs event) "v@:@"))))
   nil)
 
 ;; --- the app loop ------------------------------------------------------------

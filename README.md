@@ -208,14 +208,20 @@ A consumer can teach glimmer-uikit new hiccup tags at load time:
 (w/register-widget! :my-thing
   {:ctor      (fn [props] (make-the-view props))
    :apply     (fn [widget props] (apply props at mount and on re-render))
+   :connect   (fn [widget props] (wire its events))   ; optional
    :container :none})          ; or :box / :layers / :scroll
 
 (w/register-signal! :on-input "value-changed")   ; apply-props! now skips :on-input
 ```
 
 `register-signal!` marks a key as an event, so a re-render does not try to set it
-on the view. Wiring the event to UIKit is the new widget's job, in its `:ctor`;
-only `:on-click` and `:on-toggled` come with a target already built.
+on the view. The new widget wires the event to UIKit in `:connect`. `create!`
+calls it once, last, after it wires `:on-click` and `:on-toggled`. Do not wire
+events in `:ctor`: `create!` forgets the view's address after `:ctor` returns.
+
+`:connect` runs only at mount, as in glimmer-appkit. When glimmer reuses the
+view for a later render, the handler that `:connect` wired stays. Only
+`:on-click` and `:on-toggled` take the new handler on each render.
 
 ## Architecture
 
