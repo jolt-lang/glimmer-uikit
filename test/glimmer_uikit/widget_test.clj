@@ -154,6 +154,22 @@
   (#'w/update-view! 4949 :expanded disj 1)
   (is (= #{0} (#'w/recall 4949 :expanded))))
 
+(deftest props-gone-finds-what-a-render-left-out
+  (testing "a prop that is missing, or nil, on the later render is gone"
+    (is (= #{:border :radius}
+           (w/props-gone {:label "a" :border [1 "#000" 1.0] :radius 4}
+                         {:label "b" :radius nil}
+                         #{}))))
+  (testing "a prop that stays, even with a new value, is not gone"
+    (is (= #{} (w/props-gone {:label "a"} {:label "b"} #{}))))
+  (testing "a prop that was nil before cannot go"
+    (is (= #{} (w/props-gone {:label nil} {} #{}))))
+  (testing "the keys to skip never count as gone"
+    (is (= #{:alpha}
+           (w/props-gone {:on-click identity :vfill true :width 10 :alpha 0.5}
+                         {}
+                         #{:on-click :vfill :width})))))
+
 (deftest xalign-picks-a-side
   (is (= :left   (w/xalign->side 0.0)))
   (is (= :left   (w/xalign->side 0.34)))

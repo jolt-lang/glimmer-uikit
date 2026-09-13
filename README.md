@@ -190,6 +190,10 @@ glimmer reuses a view when the tag at the same position matches across renders,
 including across screens. Every piece of state this backend keeps follows the
 render, not the mount:
 
+- A prop that a later render leaves out, or sets to `nil`, is reset. The reused
+  view then looks and behaves like a new view of that tag with the later
+  render's props. `:vfill`, `:full-bleed`, `:safe`, `:height-anchor` and
+  `:height-like` are the exception: they act only when a view joins its parent.
 - The handler behind `:on-click` and `:on-toggled` is replaced on every render.
   Otherwise a reused button fires the handler of the screen it was built for.
 - `:width`, `:height` and `:center-y` keep one constraint per view and kind:

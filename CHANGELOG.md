@@ -61,3 +61,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the view's address after `:ctor`, so a handler stored there was lost.
 - `jolt test` fails when a test namespace does not load. The runner printed the
   error but reported 0 failed and exited 0, so CI passed.
+- A prop that a later render leaves out is reset on the reused view. A label
+  kept its `:markup` colour and size, and a button kept its `:border`.
