@@ -25,3 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   events.
 - Helpers in `glimmer-uikit.ffi` for system frameworks, Objective-C blocks,
   timers, URLs, the bundle version and SF Symbols.
+
+### Fixed
+
+- `jolt lint` reports 0 warnings again. The test runner's hook on jolt's
+  `clojure.test/err!` no longer shows as an unresolved var.
