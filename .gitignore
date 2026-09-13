@@ -18,6 +18,10 @@
 !/.github/workflows/
 !/.github/workflows/*.yml
 
+!/examples/
+!/examples/glimmer_ios/
+!/examples/glimmer_ios/*.clj
+
 !/src/
 !/src/glimmer_ios/
 !/src/glimmer_ios/*.clj

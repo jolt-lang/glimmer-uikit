@@ -24,7 +24,11 @@
                   :extra-deps  {org.clojure/test.check {:mvn/version "1.1.1"}
                                 weavejester/hiccup {:git/url "https://github.com/weavejester/hiccup"
                                                     :git/sha "b6b12097ba973141fe87c1b4d6a27ddcce5d5929"}}
-                  :main-opts   ["-m" "glimmer-ios.test-runner"]}}
+                  :main-opts   ["-m" "glimmer-ios.test-runner"]}
+
+           ;; An iOS example cannot be `jolt run`; it is cross-compiled into an
+           ;; .app. `jolt -A:examples build` puts examples/ on the source roots.
+           :examples {:extra-paths ["examples"]}}
 
  :tasks {test "jolt -M:test"
-         lint "clj-kondo --lint src test --fail-level warning"}}
+         lint "clj-kondo --lint src test examples --fail-level warning"}}
