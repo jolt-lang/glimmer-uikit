@@ -148,6 +148,17 @@
   (is (= :right  (w/xalign->side 0.66)))
   (is (= :right  (w/xalign->side 1.0))))
 
+(deftest date-styles-name-dateformatter-styles
+  (testing "no :date-format is the medium date and no time"
+    (is (= [2 0] (w/date-styles nil))))
+  (testing "one key alone keeps the default for the other"
+    (is (= [2 1] (w/date-styles {:time :short})))
+    (is (= [4 0] (w/date-styles {:date :full}))))
+  (testing "the five styles are NSDateFormatterStyle 0 to 4"
+    (is (= [0 3] (w/date-styles {:date :none :time :long}))))
+  (testing "a style that is not one of the five throws"
+    (is (thrown? Exception (w/date-styles {:date :brief})))))
+
 (deftest button-font-args-map-props-to-a-system-font
   (testing "size and weight"
     (is (= [20.0 0.4] (w/button-font-args {:font-size 20 :font-weight :bold}))))
