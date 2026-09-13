@@ -25,7 +25,9 @@
   (System/exit code))
 
 (defn -main [& _]
-  (let [namespaces '[glimmer-uikit.widget-test]]
+  (let [namespaces '[glimmer-uikit.widget-test
+                     glimmer-uikit.ffi-test
+                     glimmer-uikit.core-test]]
     (doseq [ns namespaces]
       (try (require ns :reload)
            (catch Exception e
