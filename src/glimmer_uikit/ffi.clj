@@ -60,6 +60,7 @@
 (def RELATION-EQUAL 0)
 ;; NSTextAlignment
 (def TEXT-ALIGN-LEFT 0) (def TEXT-ALIGN-CENTER 1) (def TEXT-ALIGN-RIGHT 2)
+(def TEXT-ALIGN-NATURAL 4)                     ; UILabel's default (NSText.h, UILabel.h)
 ;; NSLineBreakMode
 (def LINE-BREAK-WRAP 0) (def LINE-BREAK-CLIP 2)
 (def LINE-BREAK-HEAD 3) (def LINE-BREAK-TAIL 4) (def LINE-BREAK-MIDDLE 5)
@@ -264,13 +265,18 @@
 (defn stack-spacing! [s d] (objc-msg-send-1dvoid s (sel "setSpacing:") (double d)))
 (defn stack-alignment! [s a] (objc-msg-send-1i64void s (sel "setAlignment:") a))
 (defn stack-distribution! [s d] (objc-msg-send-1i64void s (sel "setDistribution:") d))
+(defn stack-margins-relative!
+  "Whether the stack lays out its arranged subviews inside its layout margins.
+  A new UIStackView does not (UIStackView.h)."
+  [s b]
+  (objc-msg-send-1intvoid s (sel "setLayoutMarginsRelativeArrangement:") (if b 1 0)))
 (defn stack-layout-margins!
   "Edge insets — and the flag without which UIStackView ignores them."
   [s top left bottom right]
   (objc-msg-send-4dvoid s (sel "setLayoutMargins:")
                         (double (or top 0)) (double (or left 0))
                         (double (or bottom 0)) (double (or right 0)))
-  (objc-msg-send-1intvoid s (sel "setLayoutMarginsRelativeArrangement:") 1))
+  (stack-margins-relative! s true))
 (defn stack-add-arranged! [s v] (objc-msg-send-1pvoid s (sel "addArrangedSubview:") v))
 (defn stack-remove-arranged! [s v] (objc-msg-send-1pvoid s (sel "removeArrangedSubview:") v))
 (defn stack-insert-arranged! [s v i] (objc-msg-send-1p1i64void s (sel "insertArrangedSubview:atIndex:") v i))
@@ -297,6 +303,7 @@
 (defn label-align! [l a] (objc-msg-send-1i64void l (sel "setTextAlignment:") a))
 (defn label-lines! [l n] (objc-msg-send-1i64void l (sel "setNumberOfLines:") n))
 (defn label-line-break! [l m] (objc-msg-send-1i64void l (sel "setLineBreakMode:") m))
+(defn label-text-color! [l color] (objc-msg-send-1pvoid l (sel "setTextColor:") color))
 
 ;; --- UIButton / UIControl ---------------------------------------------------
 (defn button-title! [b s]
@@ -322,6 +329,7 @@
   (objc-msg-send-2d (cls "UIFont") (sel "systemFontOfSize:weight:") (double size) (double weight)))
 (defn italic-font-size [size] (objc-msg-send-1d (cls "UIFont") (sel "italicSystemFontOfSize:") (double size)))
 (defn system-background-color [] (objc-msg-send-0 (cls "UIColor") (sel "systemBackgroundColor")))
+(defn clear-color [] (objc-msg-send-0 (cls "UIColor") (sel "clearColor")))
 (defn- hex-digit [c]
   (let [n (int c)]
     (cond (<= 48 n 57) (- n 48)
@@ -377,6 +385,10 @@
                         (double (or bottom 0)) (double (or right 0))))
 ;; UIControlContentHorizontalAlignment: center 0, left 1, right 2 (fill 3)
 (def BUTTON-ALIGN-CENTER 0) (def BUTTON-ALIGN-LEFT 1) (def BUTTON-ALIGN-RIGHT 2)
+;; A new system button's title font is the regular system font at 15 pt. The
+;; headers do not say; a probe on the iOS 26.5 simulator read ".SFUI-Regular",
+;; "font-weight: normal", "font-size: 15.00pt".
+(def BUTTON-TITLE-FONT-SIZE 15.0)
 (defn button-horizontal-alignment!
   "Where the title sits in the button's width — a list row's text starts at
   the same x on every row when it is left (#18)."
@@ -502,6 +514,13 @@
         locs   (reduce (fn [a [_ loc]] (array-add! a (number-double loc))) (array-new) stops)]
     (objc-msg-send-1pvoid l (sel "setColors:") colors)
     (objc-msg-send-1pvoid l (sel "setLocations:") locs)))
+(defn gradient-clear!
+  "No colours and no locations on the view's layer, as a new gradient view has
+  (CAGradientLayer.h)."
+  [v]
+  (let [l (layer v)]
+    (objc-msg-send-1pvoid l (sel "setColors:") ffi/null)
+    (objc-msg-send-1pvoid l (sel "setLocations:") ffi/null)))
 
 ;; two more pins
 (defn pin-to-edges!

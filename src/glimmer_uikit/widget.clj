@@ -304,6 +304,8 @@
 ;;   :safe?        a :layers child pinned to its safe area, not its edges (:safe)
 ;;   :like         the :height-anchor view to match, once both are in a stack
 ;;   :center       the :center-y offset, until the view has a parent
+;;   :props        the props the last render applied, to find the ones that go
+;;   :stack        the stack the view was added to, to realign it
 (defonce ^:private views (atom {}))
 
 (defn- remember! [view k v] (swap! views assoc-in [view k] v))
@@ -380,11 +382,16 @@
 
 ;; --- widget specs ------------------------------------------------------------
 ;; Each spec: {:ctor (fn [props] view) :apply (fn [view props]) :container kw
-;;             :connect (fn [view props])?}
+;;             :connect (fn [view props])? :reset (fn [view gone props])?}
+;; :reset puts back what the props in the set `gone` changed, before :apply
+;; applies `props`.
 (defn- window-spec []
   {:ctor  (fn [_] (throw (ex-info "glimmer-uikit: :window is the root container; hiccup cannot create one" {})))
    :apply (fn [_ _] nil)
    :container :window})
+
+(def ^:private margin-keys
+  [:margin :margin-top :margin-bottom :margin-left :margin-right :margin-start :margin-end])
 
 (defn- box-margins
   "The stack's layout margins implied by a box's margin props, or nil."
@@ -413,6 +420,12 @@
                                  u/AXIS-HORIZONTAL)))
             (when-let [[t l b r] (box-margins p)]
               (u/stack-layout-margins! w t l b r)))
+   :reset (fn [w gone p]
+            (when (gone :spacing)     (u/stack-spacing! w 0))
+            (when (gone :homogeneous) (u/stack-distribution! w u/DISTRIBUTION-FILL))
+            (when (gone :orientation) (u/stack-axis! w u/AXIS-HORIZONTAL))
+            (when (and (some gone margin-keys) (nil? (box-margins p)))
+              (u/stack-margins-relative! w false)))
    :container :box})
 
 (defn button-font-args
@@ -487,6 +500,19 @@
             (when (contains? p :xalign)                                                  ; #18
               (u/button-horizontal-alignment! w (->button-align (:xalign p))))
             (when-let [[width hex alpha] (:border p)] (u/layer-border! (u/layer w) width (u/color-hex-alpha hex alpha))))
+   :reset (fn [w gone p]
+            (when (or (gone :label) (gone :label-date)) (u/button-title! w (or (:label p) "")))
+            (when (gone :sensitive)
+              (u/control-enabled! w true)
+              (u/set-alpha! w 1.0))
+            (when (gone :foreground) (u/button-title-color! w ffi/null))
+            (when (gone :font-size)
+              (u/set-font! (u/button-title-label w)
+                           (u/system-font u/BUTTON-TITLE-FONT-SIZE u/FONT-WEIGHT-REGULAR)))
+            (when (gone :radius)  (u/layer-corner-radius! (u/layer w) 0))
+            (when (gone :padding) (u/button-content-insets! w 0 0 0 0))
+            (when (gone :xalign)  (u/button-horizontal-alignment! w u/BUTTON-ALIGN-CENTER))
+            (when (gone :border)  (u/layer-border! (u/layer w) 0 (u/color-hex "#000000"))))
    :container :none})
 
 (defn- checkbutton-spec
@@ -497,15 +523,20 @@
   user feedback). :symbol is the checkmark's point size; :foreground tints
   it. Everything else — background, radius, size, insets — is the button's."
   []
-  (let [button (button-spec)]
+  (let [button (button-spec)
+        own    #{:active :symbol :foreground}]   ; :foreground is the tint, not a title colour
     {:ctor  (fn [_] (u/button-new ""))
      :apply (fn [w p]
-              ((:apply button) w (dissoc p :active :symbol :foreground))   ; the tint is ours, not a title colour
+              ((:apply button) w (apply dissoc p own))
               (when (contains? p :active)
                 (u/button-image! w (if (:active p)
                                      (u/system-image "checkmark" (or (:symbol p) 24))
                                      ffi/null)))
               (when (contains? p :foreground) (u/set-tint-color! w (u/color-hex (:foreground p)))))
+     :reset (fn [w gone p]
+              ((:reset button) w (apply disj gone own) p)
+              (when (gone :active)     (u/button-image! w ffi/null))
+              (when (gone :foreground) (u/set-tint-color! w ffi/null)))
      :container :none}))
 
 (defn- ->text-align [x]
@@ -540,6 +571,17 @@
             (when (contains? p :lines)  (u/label-lines! w (:lines p)))
             (when-let [m (and (contains? p :ellipsize) (->line-break (:ellipsize p)))]
               (u/label-line-break! w m)))
+   ;; Attributed text sets the label's font and colour too, so both go back to
+   ;; UIKit's defaults with it (UILabel.h: both are null_resettable).
+   :reset (fn [w gone _]
+            (when (or (gone :markup) (gone :date-markup))
+              (u/label-attributed! w ffi/null)
+              (u/set-font! w ffi/null)
+              (u/label-text-color! w ffi/null))
+            (when (some gone [:label :text :date :markup]) (u/label-text! w ""))
+            (when (gone :xalign) (u/label-align! w u/TEXT-ALIGN-NATURAL))
+            (when (or (gone :wrap) (gone :lines)) (u/label-lines! w 1))
+            (when (or (gone :wrap) (gone :ellipsize)) (u/label-line-break! w u/LINE-BREAK-TAIL)))
    :container :none})
 
 ;; --- a photograph behind the type (2026-09-05) -------------------------------
@@ -551,6 +593,8 @@
    :apply (fn [w p]
             (when-let [src (:src p)]              ; a file in the bundle
               (u/image-view-image! w (u/image-with-file (str (u/bundle-path) "/" src)))))
+   :reset (fn [w gone _]
+            (when (gone :src) (u/image-view-image! w ffi/null)))
    :container :none})
 
 (defn- gradient-spec []
@@ -558,6 +602,8 @@
    :apply (fn [w p]
             (when-let [stops (:stops p)]         ; [[hex alpha location] ...], top to bottom
               (u/gradient-stops! w (mapv (fn [[hex alpha loc]] [(u/color-hex-alpha hex alpha) loc]) stops))))
+   :reset (fn [w gone _]
+            (when (gone :stops) (u/gradient-clear! w)))
    :container :none})
 
 (defn- layers-spec []
@@ -593,6 +639,9 @@
    :apply (fn [w p]
             (when-let [b (get @scroll-boxes w)]
               (when (contains? p :spacing) (u/stack-spacing! b (:spacing p)))))
+   :reset (fn [w gone _]
+            (when (gone :spacing)
+              (when-let [b (get @scroll-boxes w)] (u/stack-spacing! b 0))))
    :container :scroll})
 
 (defn- scroll-box
@@ -612,8 +661,10 @@
          :scroll   (scroll-spec)}))
 
 (defn register-widget!
-  "Add a widget spec {:ctor :apply :container :connect?} under `tag`. create!
-  calls the optional :connect once, last, to wire the view's own events."
+  "Add a widget spec {:ctor :apply :container :connect? :reset?} under `tag`.
+  create! calls the optional :connect once, last, to wire the view's own
+  events. apply-props! calls the optional :reset with the props a render left
+  out, before :apply."
   [tag spec]
   (swap! specs assoc tag spec)
   nil)
@@ -717,6 +768,61 @@
         (center-y! widget offset)
         (when offset (remember! widget :center offset))))))
 
+;; --- props that go away -------------------------------------------------------
+;; glimmer reuses a view whose tag matches at the same position across renders,
+;; so what a prop changed must be put back when a later render leaves it out.
+;; Each spec's :reset puts back its own props, reset-widget-props! the common
+;; ones, and realign! the parent stack's alignment.
+(def ^:private reset-skip
+  "Props a reset leaves alone. :width, :height, :center-y, :hexpand and
+  :vexpand already follow the render. The rest act only when a view joins
+  its parent."
+  #{:width :height :center-y :hexpand :vexpand
+    :vfill :full-bleed :safe :height-anchor :height-like})
+
+(defn props-gone
+  "The keys with a value in `before` that `after` leaves out or sets to nil,
+  less the keys in `skip`. Public so the rule is testable without UIKit."
+  [before after skip]
+  (into #{}
+        (comp (filter (fn [[k v]] (and (some? v) (nil? (get after k)) (not (contains? skip k)))))
+              (map key))
+        before))
+
+(defn- applied-props
+  "`props` as a spec applies them: with the orientation an :hbox or :vbox
+  implies, and without event keys or nil values."
+  [tag props]
+  (into {}
+        (filter (fn [[k v]] (and (not (contains? @signals k)) (some? v))))
+        (with-orientation tag props)))
+
+(defn- reset-widget-props!
+  "Put back what a common prop that went away changed. The background goes
+  back to clear, not nil: a new UILabel's is clear, and a label that is opaque
+  with a nil colour draws black (probe, iOS 26.5 simulator). A view that draws
+  nothing looks the same either way. Alpha goes back to 1.0 (UIView.h)."
+  [widget gone]
+  (when (gone :background) (u/set-background! widget (u/clear-color)))
+  (when (gone :alpha)      (u/set-alpha! widget 1.0)))
+
+(defn stack-children
+  "The arranged subviews of a stack, in visual order."
+  [stack]
+  (let [arr (u/stack-arranged! stack)
+        n   (u/array-count arr)]
+    (mapv (fn [i] (u/array-get arr i)) (range n))))
+
+(defn- realign!
+  "Set `parent` stack's alignment from its children: the last one with
+  :halign or :valign wins. With none, the stack centres, as its constructor
+  set it."
+  [parent]
+  (u/stack-alignment! parent
+                      (if-let [[halign valign] (last (keep #(recall % :alignment) (stack-children parent)))]
+                        (->stack-alignment halign valign (u/stack-axis parent))
+                        u/ALIGN-CENTER)))
+
 ;; --- public create / patch ---------------------------------------------------
 (defn create!
   "Construct a fresh UIKit view for `tag`, apply `props`, wire :on-click or
@@ -730,19 +836,31 @@
     (forget! widget)
     ((:apply s) widget props)
     (apply-widget-props! widget props)
+    (remember! widget :props (applied-props tag props))
     (connect-signals! widget props)
     (when-let [connect (:connect s)] (connect widget props))
     widget))
 
 (defn apply-props!
-  "Re-apply the prop map to an existing view (re-render path). :on-* keys are
-  not re-wired (the target stays from mount) but the handler behind :on-click
-  or :on-toggled is replaced; keys whose value is nil are skipped."
+  "Re-apply the prop map to an existing view (re-render path). A prop the last
+  render applied and this one leaves out, or sets to nil, is reset first.
+  :on-* keys are not re-wired (the target stays from mount) but the handler
+  behind :on-click or :on-toggled is replaced."
   [tag widget props]
-  (let [applied (into {} (filter (fn [[k v]] (and (not (contains? @signals k)) (some? v)))
-                                 (with-orientation tag props)))]
-    ((:apply (spec-for tag)) widget applied)
+  (let [spec      (spec-for tag)
+        applied   (applied-props tag props)
+        gone      (props-gone (recall widget :props) applied reset-skip)
+        alignment (recall widget :alignment)]
+    (when (seq gone)
+      (when-let [reset (:reset spec)] (reset widget gone applied))
+      (reset-widget-props! widget gone))
+    (when-not (or (contains? applied :halign) (contains? applied :valign))
+      (drop! widget :alignment))
+    ((:apply spec) widget applied)
     (apply-widget-props! widget applied)
+    (remember! widget :props applied)
+    (when-let [parent (and (not= alignment (recall widget :alignment)) (recall widget :stack))]
+      (realign! parent))
     (update-handler! widget props)))
 
 (defn show!
@@ -762,6 +880,7 @@
   [parent-tag parent child]
   (case (container-kind parent-tag)
     :box    (do (u/stack-add-arranged! parent child)
+                (remember! child :stack parent)
                 (maybe-align! parent child)
                 (when-let [other (take! child :like)]
                   (u/equal-height! child other))
@@ -799,6 +918,7 @@
     :box    (let [i (u/stack-index-of! parent old-child)]
               (remove-child! parent-tag parent old-child)
               (u/stack-insert-arranged! parent new-child (max i 0))
+              (remember! new-child :stack parent)
               (maybe-align! parent new-child))
     ;; a :layers child replaced lands in front: remove then append. The splash's
     ;; layers never change tag at a position, so nothing here reorders.
@@ -822,11 +942,3 @@
                   (let [i (u/stack-index-of! parent sibling)]
                     (u/stack-insert-arranged! parent child (inc i)))))
     nil))
-
-;; --- reading the live tree (for smoke examples) -----------------------------
-(defn stack-children
-  "The arranged subviews of a stack, in visual order."
-  [stack]
-  (let [arr (u/stack-arranged! stack)
-        n   (u/array-count arr)]
-    (mapv (fn [i] (u/array-get arr i)) (range n))))
