@@ -78,7 +78,7 @@
     (is (= :none (w/container-kind :label)))
     (is (= :none (w/container-kind :button)))))
 
-(deftest span-style-reads-the-polish-attributes
+(deftest span-style-reads-smallcaps-and-kern
   (testing "variant smallcaps becomes a style flag"
     (is (= {:smallcaps true} (w/span-style {:variant "smallcaps"}))))
   (testing "the existing attributes are unchanged"

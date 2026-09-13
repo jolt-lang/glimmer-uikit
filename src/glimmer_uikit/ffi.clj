@@ -108,8 +108,8 @@
 (ffi/defcfn objc-msg-send-4dvoid   "objc_msgSend" [:pointer :pointer :double :double :double :double] :void)
 ;; setTitle:forState: / insertArrangedSubview:atIndex:
 (ffi/defcfn objc-msg-send-1p1i64void "objc_msgSend" [:pointer :pointer :pointer :int64] :void)
-(ffi/defcfn objc-msg-send-0int     "objc_msgSend" [:pointer :pointer] :int)   ; a 32-bit enum back, CLAuthorizationStatus (1.2)
-(ffi/defcfn objc-msg-send-1d3p1int "objc_msgSend" [:pointer :pointer :double :pointer :pointer :pointer :int] :pointer)   ; NSTimer's scheduled…repeats: (1.2)
+(ffi/defcfn objc-msg-send-0int     "objc_msgSend" [:pointer :pointer] :int)   ; a 32-bit enum back, such as CLAuthorizationStatus
+(ffi/defcfn objc-msg-send-1d3p1int "objc_msgSend" [:pointer :pointer :double :pointer :pointer :pointer :int] :pointer)   ; NSTimer's scheduled…repeats:
 ;; addTarget:action:forControlEvents: — (id target, SEL action, UIControlEvents)
 (ffi/defcfn objc-msg-send-2p1i64void "objc_msgSend" [:pointer :pointer :pointer :pointer :int64] :void)
 ;; (id, SEL, id) -> NSInteger (indexOfObject:)
@@ -125,7 +125,7 @@
 (ffi/defcfn objc-allocate-class-pair "objc_allocateClassPair"  [:pointer :string :size_t] :pointer)
 (ffi/defcfn objc-register-class-pair "objc_registerClassPair"  [:pointer] :void)
 (ffi/defcfn class-add-method         "class_addMethod"         [:pointer :pointer :pointer :string] :uint8)
-(ffi/defcfn c-dlopen "dlopen" [:string :int] :pointer)      ; a framework by path (1.2)
+(ffi/defcfn c-dlopen "dlopen" [:string :int] :pointer)      ; a framework by path
 (ffi/defcfn c-dlsym  "dlsym"  [:pointer :string] :pointer)  ; a data symbol, which no defcfn can name
 (def RTLD-NOW 2)
 
@@ -360,7 +360,7 @@
   (objc-msg-send-2p2i64void a (sel "addAttribute:value:range:") (nsstring key) value start len))
 (defn attributed-length [a] (objc-msg-send-0i64 a (sel "length")))
 
-;; --- polish (2026-09-05): what a themed screen needs ------------------------
+;; --- a themed screen: title colours, fonts, insets, symbols -----------------
 ;; setObject:forKey: — (id value, id key); setTitleColor:forState: reuses 1p1i64
 (ffi/defcfn objc-msg-send-2pvoid "objc_msgSend" [:pointer :pointer :pointer :pointer] :void)
 ;; fontWithDescriptor:size: — (UIFontDescriptor*, CGFloat) -> UIFont*
@@ -377,8 +377,8 @@
 (defn button-title-label [b] (objc-msg-send-0 b (sel "titleLabel")))
 (defn button-content-insets!
   "The title's inset from the button's edges — UIEdgeInsets top left bottom
-  right, the four-double shape stack-layout-margins! sends. #18: a list
-  row's text was flush with its tile."
+  right, the four-double shape stack-layout-margins! sends. Without it a
+  title sits flush with the button's edges."
   [b top left bottom right]
   (objc-msg-send-4dvoid b (sel "setContentEdgeInsets:")
                         (double (or top 0)) (double (or left 0))
@@ -390,14 +390,14 @@
 ;; "font-weight: normal", "font-size: 15.00pt".
 (def BUTTON-TITLE-FONT-SIZE 15.0)
 (defn button-horizontal-alignment!
-  "Where the title sits in the button's width — a list row's text starts at
-  the same x on every row when it is left (#18)."
+  "Where the title sits in the button's width. Left puts the title of every
+  button in a list at the same x."
   [b a]
   (objc-msg-send-1i64void b (sel "setContentHorizontalAlignment:") a))
 (defn system-image
   "An SF Symbol by `name` at `points` — UIImage systemImageNamed: under a
   symbol configuration, iOS 13 and up. The null pointer for a name UIKit
-  does not know (#3)."
+  does not know."
   [name points]
   (let [img (objc-msg-send-1p (cls "UIImage") (sel "systemImageNamed:") (nsstring name))]
     (if (ffi/null? img)
@@ -466,7 +466,7 @@
                                   (sel "fontDescriptorByAddingAttributes:") attrs)]
     (objc-msg-send-1p1d (cls "UIFont") (sel "fontWithDescriptor:size:") desc 0.0)))
 
-;; --- a photograph behind the type (2026-09-05) ------------------------------
+;; --- plain views, images, borders and gradients -----------------------------
 (ffi/defcfn object-get-class "object_getClass" [:pointer] :pointer)   ; of a class: its metaclass
 
 (def CONTENT-MODE-SCALE-ASPECT-FILL 2)
@@ -532,7 +532,7 @@
   [child parent]
   (pin-attrs! child (safe-area-guide parent) all-edges))
 
-;; --- a date, the way the phone writes one (1.1) ------------------------------
+;; --- a date, the way the phone writes one ------------------------------------
 ;; NSDateFormatterStyle (NSDateFormatter.h)
 (def DATE-STYLE-NONE   0)
 (def DATE-STYLE-SHORT  1)
@@ -561,7 +561,7 @@
     (nsstring->str (objc-msg-send-1p (date-formatter date-style time-style)
                                      (sel "stringFromDate:") d))))
 
-;; --- UIScrollView (1.1) -------------------------------------------------------
+;; --- UIScrollView -------------------------------------------------------------
 (defn scroll-view-new [] (new-obj "UIScrollView"))
 (defn content-guide [s] (objc-msg-send-0 s (sel "contentLayoutGuide")))
 (defn frame-guide   [s] (objc-msg-send-0 s (sel "frameLayoutGuide")))
@@ -574,7 +574,7 @@
   [child guide]
   (activate! (constraint child ATTR-WIDTH guide ATTR-WIDTH 1.0 0.0)))
 
-;; --- a data symbol, a block, a timer, a value (1.2) -------------------------
+;; --- a data symbol, a block, a timer, a value --------------------------------
 (defn data-symbol
   "The address of a data symbol — an extern NSString constant, say — from
   `framework`, or nil when it is not there, which on an older iOS a newer
@@ -634,7 +634,7 @@
 
 (defn invalidate! [timer] (objc-msg-send-0void timer (sel "invalidate")))
 
-(ffi/defcfn objc-msg-send-3pvoid "objc_msgSend" [:pointer :pointer :pointer :pointer :pointer] :void)   ; openURL:options:completionHandler: (#16)
+(ffi/defcfn objc-msg-send-3pvoid "objc_msgSend" [:pointer :pointer :pointer :pointer :pointer] :void)   ; openURL:options:completionHandler:
 
 (defn open-url!
   "Hand a URL to the system: the default browser for https, the default

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-13
+
 ### Added
 
 - The UIKit backend for glimmer. Requiring `glimmer-uikit.core` installs it, and
@@ -54,6 +56,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   caches in `glimmer-uikit.ffi` and the view registry's updates each share one
   implementation.
 
+### Removed
+
+- `glimmer-uikit.widget/show!` and the `:visible` prop it read. glimmer's
+  backend contract never calls it, so `:visible` did nothing.
+
 ### Fixed
 
 - `jolt lint` reports 0 warnings again. The test runner's hook on jolt's
@@ -66,3 +73,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   error but reported 0 failed and exited 0, so CI passed.
 - A prop that a later render leaves out is reset on the reused view. A label
   kept its `:markup` colour and size, and a button kept its `:border`.
+- The README names every prop the code reads: `:margin-left` and
+  `:margin-right` on a box, and the `:background` option of `ui/run`.
+- Comments and docstrings no longer refer to the app this backend came from.
+
+[Unreleased]: https://github.com/statonjr/glimmer-uikit/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/statonjr/glimmer-uikit/releases/tag/v0.1.0
