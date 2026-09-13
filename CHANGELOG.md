@@ -44,7 +44,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   attributes, and the old name read like `DateFormatter`'s `dateStyle`.
 - `glimmer-uikit.ffi/format-date` takes the date style and the time style, and
   keeps one formatter for each pair.
-
 - One registry per view in `glimmer-uikit.widget` replaces nine, so `forget!`
   clears a view with one `dissoc`.
 - The colour parsers, the four pin helpers, the three runtime classes, the
