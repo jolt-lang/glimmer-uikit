@@ -308,8 +308,15 @@
 
 (defn- remember! [view k v] (swap! views assoc-in [view k] v))
 (defn- recall [view k] (get-in @views [view k]))
+(defn- update-view! [view k f & args] (swap! views update-in [view k] #(apply f % args)))
 (defn- drop! [view k]
   (swap! views (fn [m] (if (contains? m view) (update m view dissoc k) m))))
+(defn- take!
+  "The value remembered under `k` for `view`, dropped as it is taken."
+  [view k]
+  (let [v (recall view k)]
+    (drop! view k)
+    v))
 
 (defn- forget!
   "Drop everything this layer remembers about `widget`'s address. A fresh view
@@ -648,9 +655,9 @@
   (let [{:keys [value c]} (get (recall widget :constraints) kind)]
     (when (and c (not= value wanted))
       (u/deactivate! c)
-      (swap! views update-in [widget :constraints] dissoc kind))
+      (update-view! widget :constraints dissoc kind))
     (when (and (some? wanted) (or (nil? c) (not= value wanted)))
-      (swap! views assoc-in [widget :constraints kind] {:value wanted :c (make)}))))
+      (update-view! widget :constraints assoc kind {:value wanted :c (make)}))))
 
 (defn- center-y-offset [v] (cond (number? v) (double v) v 0.0 :else nil))
 
@@ -667,10 +674,10 @@
   (cond
     expand?
     (do (u/set-hugging! widget u/PRIORITY-VERY-LOW axis)
-        (swap! views update-in [widget :expanded] (fnil conj #{}) axis))
+        (update-view! widget :expanded (fnil conj #{}) axis))
     (contains? (recall widget :expanded) axis)
     (do (u/set-hugging! widget u/PRIORITY-LOW axis)
-        (swap! views update-in [widget :expanded] disj axis))))
+        (update-view! widget :expanded disj axis))))
 
 (defn apply-widget-props!
   [widget props]
@@ -756,19 +763,16 @@
   (case (container-kind parent-tag)
     :box    (do (u/stack-add-arranged! parent child)
                 (maybe-align! parent child)
-                (when-let [other (recall child :like)]
-                  (u/equal-height! child other)
-                  (drop! child :like))
-                (when-let [offset (recall child :center)]
-                  (center-y! child offset)
-                  (drop! child :center)))
+                (when-let [other (take! child :like)]
+                  (u/equal-height! child other))
+                (when-let [offset (take! child :center)]
+                  (center-y! child offset)))
     :layers (do (u/add-subview! parent child)          ; back to front, in hiccup order
                 (if (recall child :safe?)
                   (u/pin-to-safe-area-all! child parent)
                   (u/pin-to-edges! child parent))
-                (when-let [offset (recall child :center)]
-                  (center-y! child offset)
-                  (drop! child :center)))
+                (when-let [offset (take! child :center)]
+                  (center-y! child offset)))
     :scroll (append-child! :box (scroll-box parent) child)
     :window (do (u/add-subview! parent child)
                 (if (recall child :bleed?)

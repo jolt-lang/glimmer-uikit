@@ -48,7 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - One registry per view in `glimmer-uikit.widget` replaces nine, so `forget!`
   clears a view with one `dissoc`.
 - The colour parsers, the four pin helpers, the three runtime classes, the
-  framework paths and the app loop's failure logging each share one
+  framework paths, the app loop's failure logging, the three find-or-make
+  caches in `glimmer-uikit.ffi` and the view registry's updates each share one
   implementation.
 
 ### Fixed

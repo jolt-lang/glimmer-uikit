@@ -12,6 +12,14 @@
   (testing "a digit that is not hex throws"
     (is (thrown? Exception (u/hex->rgb "#gg0000")))))
 
+(deftest cached-makes-a-value-once
+  (let [cache (atom {})
+        made  (atom 0)
+        make  (fn [] (swap! made inc) :value)]
+    (is (= :value (#'u/cached! cache :k make)))
+    (is (= :value (#'u/cached! cache :k make)))
+    (is (= 1 @made) "the second call finds the value in the cache")))
+
 (deftest framework-path-names-a-system-framework
   (is (= "/System/Library/Frameworks/UIKit.framework/UIKit"
          (u/framework-path "UIKit"))))
