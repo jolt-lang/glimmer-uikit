@@ -24,18 +24,35 @@
 (defn- exit [code]
   (System/exit code))
 
+(defn failures
+  "The failed and erred assertions in `results`, plus one for each test
+  namespace in `unloaded`. A namespace that does not load runs no tests, so
+  without the second count a broken test file passes."
+  [results unloaded]
+  (+ (:fail results 0) (:error results 0) (count unloaded)))
+
+(defn- load-namespace
+  "Require `ns`. Return nil when it loads, or `ns` when it throws."
+  [ns]
+  (try (require ns :reload)
+       nil
+       (catch Exception e
+         (println "ERROR requiring" ns ":" (ex-message e))
+         ns)))
+
 (defn -main [& _]
   (let [namespaces '[glimmer-uikit.widget-test
                      glimmer-uikit.ffi-test
-                     glimmer-uikit.core-test]]
-    (doseq [ns namespaces]
-      (try (require ns :reload)
-           (catch Exception e
-             (println "ERROR requiring" ns ":" (ex-message e)))))
-    (let [results (apply t/run-tests namespaces)
-          failed (+ (:fail results 0) (:error results 0))]
-      (println "----")
-      (println "tests:" (:test results 0)
-               "assertions:" (:pass results 0) "passed /"
-               failed "failed")
-      (when (pos? failed) (exit 1)))))
+                     glimmer-uikit.core-test
+                     glimmer-uikit.test-runner-test]
+        unloaded   (vec (keep load-namespace namespaces))
+        loaded     (remove (set unloaded) namespaces)
+        results    (if (seq loaded) (apply t/run-tests loaded) {})
+        failed     (failures results unloaded)]
+    (println "----")
+    (println "tests:" (:test results 0)
+             "assertions:" (:pass results 0) "passed /"
+             failed "failed")
+    (when (seq unloaded)
+      (println "not loaded:" (pr-str unloaded)))
+    (when (pos? failed) (exit 1))))
