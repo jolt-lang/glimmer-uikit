@@ -7,6 +7,8 @@
 ;; Print the cause chain of a test that throws. jolt's run-tests reports a
 ;; thrown test through clojure.test/err!, not the report multimethod, and err!
 ;; prints only the outer exception (stdlib/clojure/test.clj, jolt v0.8.7).
+;; clj-kondo knows only the JVM clojure.test, which has no err!.
+#_{:clj-kondo/ignore [:unresolved-var]}
 (alter-var-root #'t/err!
   (fn [err!]
     (fn [m]
