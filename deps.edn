@@ -1,0 +1,30 @@
+{;; jolt.ffi/write takes the value BEFORE the offset as of jolt 0.8.0, and the
+ ;; two spellings are both integers — an older runtime writes to the wrong
+ ;; place rather than failing. Declare the floor so it refuses instead.
+ :jolt/min-version "0.8.0"
+
+ :paths ["src"]
+
+ ;; glimmer-ios is the UIKit backend for glimmer: glimmer owns the reactive core
+ ;; (ratom, component model, reconciler) and knows nothing about any toolkit;
+ ;; this project supplies the views, the prop/event wiring and the app loop, and
+ ;; registers them through glimmer.backend.
+ ;;
+ ;; UIKit is NOT declared under :jolt/native — glimmer-ios.ffi loads it from the
+ ;; app loop, never at require time. `jolt build` loads every namespace on the
+ ;; macOS host before it emits code, and the headless tests (`jolt -M:test`) run
+ ;; on Linux CI, where no Objective-C runtime exists.
+ :deps {jolt-lang/glimmer {:git/url "https://github.com/jolt-lang/glimmer"
+                           :git/tag "v0.1.0"
+                           :git/sha "5581c331c51aff989259b9e8e92ec920fe5e6741"}}
+
+ ;; hiccup is test-only: the backend writes Pango markup itself, and a
+ ;; generative test (test.check) compares that output with hiccup's.
+ :aliases {:test {:extra-paths ["test"]
+                  :extra-deps  {org.clojure/test.check {:mvn/version "1.1.1"}
+                                weavejester/hiccup {:git/url "https://github.com/weavejester/hiccup"
+                                                    :git/sha "b6b12097ba973141fe87c1b4d6a27ddcce5d5929"}}
+                  :main-opts   ["-m" "glimmer-ios.test-runner"]}}
+
+ :tasks {test "jolt -M:test"
+         lint "clj-kondo --lint src test --fail-level warning"}}
