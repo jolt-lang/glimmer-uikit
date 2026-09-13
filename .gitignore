@@ -14,9 +14,6 @@
 !/README.md
 !/deps.edn
 
-!/.clj-kondo/
-!/.clj-kondo/config.edn
-
 !/.github/
 !/.github/workflows/
 !/.github/workflows/*.yml
