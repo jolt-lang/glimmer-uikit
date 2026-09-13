@@ -154,23 +154,26 @@
   [] @kCFRunLoopDefaultMode)
 
 ;; --- selector / class caches -------------------------------------------------
+(defn- cached!
+  "The value under `k` in atom `cache`. When there is none, call `make`, keep
+  what it returns under `k` and return it."
+  [cache k make]
+  (or (get @cache k)
+      (let [v (make)]
+        (swap! cache assoc k v)
+        v)))
+
 (def ^:private sel-cache (atom {}))
 (defn sel
   "Register (once) and return the selector for a method name."
   [name]
-  (or (get @sel-cache name)
-      (let [s (sel-register-name name)]
-        (swap! sel-cache assoc name s)
-        s)))
+  (cached! sel-cache name #(sel-register-name name)))
 
 (def ^:private class-cache (atom {}))
 (defn cls
   "Look up (once) and return the ObjC class for a name."
   [name]
-  (or (get @class-cache name)
-      (let [c (objc-get-class name)]
-        (swap! class-cache assoc name c)
-        c)))
+  (cached! class-cache name #(objc-get-class name)))
 
 (defn new-obj
   "[[Class alloc] init]."
@@ -524,13 +527,11 @@
   "The NSDateFormatter for one pair of styles, made once, on the main thread,
   the first time a date is drawn with it."
   [date-style time-style]
-  (let [k [date-style time-style]]
-    (or (get @date-formatters k)
-        (let [f (new-obj "NSDateFormatter")]
-          (objc-msg-send-1i64void f (sel "setDateStyle:") date-style)
-          (objc-msg-send-1i64void f (sel "setTimeStyle:") time-style)
-          (swap! date-formatters assoc k f)
-          f))))
+  (cached! date-formatters [date-style time-style]
+           (fn []
+             (doto (new-obj "NSDateFormatter")
+               (objc-msg-send-1i64void (sel "setDateStyle:") date-style)
+               (objc-msg-send-1i64void (sel "setTimeStyle:") time-style)))))
 
 (defn format-date
   "`millis` since the epoch as a date in the phone's locale. `date-style` and

@@ -141,6 +141,19 @@
   (w/create! :address-probe {})
   (is (nil? (w/handler-for 4747)) "a new view at a freed address inherits no handler"))
 
+(deftest take-gives-a-remembered-value-once
+  ;; a fake pointer: the view registry is plain data
+  (#'w/remember! 4848 :center 2.0)
+  (is (= 2.0 (#'w/take! 4848 :center)))
+  (is (nil? (#'w/take! 4848 :center)) "the second take finds nothing"))
+
+(deftest update-view-changes-one-remembered-value
+  (#'w/update-view! 4949 :expanded (fnil conj #{}) 0)
+  (#'w/update-view! 4949 :expanded (fnil conj #{}) 1)
+  (is (= #{0 1} (#'w/recall 4949 :expanded)))
+  (#'w/update-view! 4949 :expanded disj 1)
+  (is (= #{0} (#'w/recall 4949 :expanded))))
+
 (deftest xalign-picks-a-side
   (is (= :left   (w/xalign->side 0.0)))
   (is (= :left   (w/xalign->side 0.34)))
