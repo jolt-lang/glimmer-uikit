@@ -1,0 +1,30 @@
+# Ignore everything. Allow only the files this project tracks.
+# Pattern: Alex Pliutau, ".gitignore everything by default",
+#   https://pliutau.com/git-ignore-everything-by-default/
+#
+# Git cannot re-include a file if a parent directory is excluded
+# (gitignore(5), https://git-scm.com/docs/gitignore#_notes).
+# Allow each directory before its files. A new directory stays
+# ignored until it has its own lines here.
+*
+
+!/.gitignore
+!/CHANGELOG.md
+!/LICENSE
+!/README.md
+!/deps.edn
+
+!/.clj-kondo/
+!/.clj-kondo/config.edn
+
+!/.github/
+!/.github/workflows/
+!/.github/workflows/*.yml
+
+!/src/
+!/src/glimmer_ios/
+!/src/glimmer_ios/*.clj
+
+!/test/
+!/test/glimmer_ios/
+!/test/glimmer_ios/*.clj
