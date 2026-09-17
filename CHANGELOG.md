@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Three `objc_msgSend` bindings that return a pointer, for shapes the table
+  already had as `:void`: `glimmer-uikit.ffi/objc-msg-send-2p`,
+  `objc-msg-send-3p` and `objc-msg-send-1p1i64`. An app that fetches over the
+  network sends `dataTaskWithRequest:completionHandler:`,
+  `sessionWithConfiguration:delegate:delegateQueue:` and
+  `initWithData:encoding:` through them.
+
 ### Changed
 
 - The repository lives at jolt-lang/glimmer-uikit, and the changelog's links

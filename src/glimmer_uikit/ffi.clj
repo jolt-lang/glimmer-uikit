@@ -116,6 +116,16 @@
 (ffi/defcfn objc-msg-send-1p-i64ret "objc_msgSend" [:pointer :pointer :pointer] :int64)
 ;; addAttribute:value:range: — (id key, id value, NSUInteger loc, NSUInteger len)
 (ffi/defcfn objc-msg-send-2p2i64void "objc_msgSend" [:pointer :pointer :pointer :pointer :int64 :int64] :void)
+;; The same shapes as 2pvoid, 3pvoid and 1p1i64void, for a caller that keeps
+;; what the method returns. An app fetching over the network needs all three:
+;; dataTaskWithRequest:completionHandler: (the request and a block),
+;; sessionWithConfiguration:delegate:delegateQueue: (a configuration, a nil
+;; delegate and a queue), and initWithData:encoding: (the data and the
+;; encoding). The bindings are the arities, not the networking: the app sends
+;; the selectors.
+(ffi/defcfn objc-msg-send-2p       "objc_msgSend" [:pointer :pointer :pointer :pointer] :pointer)
+(ffi/defcfn objc-msg-send-3p       "objc_msgSend" [:pointer :pointer :pointer :pointer :pointer] :pointer)
+(ffi/defcfn objc-msg-send-1p1i64   "objc_msgSend" [:pointer :pointer :pointer :int64] :pointer)
 ;; constraintWithItem:attribute:relatedBy:toItem:attribute:multiplier:constant:
 (ffi/defcfn objc-msg-send-constraint
   "objc_msgSend" [:pointer :pointer :pointer :int64 :int64 :pointer :int64 :double :double] :pointer)
