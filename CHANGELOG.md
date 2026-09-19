@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A prop a widget does not know is reported, once per tag and prop, naming
+  both. A typo, or a name that changed between versions, no longer renders a
+  wrong view in silence. The view still draws without the prop: a throw inside
+  a render leaves a phone with a blank screen.
+- `:props` in a widget spec names what that widget takes, beside the props
+  every widget takes. `glimmer-uikit.widget/unknown-props` is the pure rule.
+  A spec without `:props` is never reported on.
+
 ## [0.2.0] - 2026-09-19
 
 ### Added
