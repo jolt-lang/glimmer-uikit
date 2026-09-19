@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-19
+
 ### Added
 
 - Three `objc_msgSend` bindings that return a pointer, for shapes the table
@@ -91,5 +93,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `:margin-right` on a box, and the `:background` option of `ui/run`.
 - Comments and docstrings no longer refer to the app this backend came from.
 
-[Unreleased]: https://github.com/jolt-lang/glimmer-uikit/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/jolt-lang/glimmer-uikit/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/jolt-lang/glimmer-uikit/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/jolt-lang/glimmer-uikit/releases/tag/v0.1.0
