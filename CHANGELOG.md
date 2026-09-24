@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-24
+
 ### Added
 
 - A prop a widget does not know is reported, once per tag and prop, naming
@@ -16,6 +18,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `:props` in a widget spec names what that widget takes, beside the props
   every widget takes. `glimmer-uikit.widget/unknown-props` is the pure rule.
   A spec without `:props` is never reported on.
+
+## [0.2.1] - 2026-09-23
+
+### Changed
+
+- glimmer is pinned at v0.1.3, which makes `make-reaction` public. The
+  `reaction` macro expands to a call of it in the caller's namespace, and jolt
+  0.8.11 refuses a private var of another namespace there
+  (jolt-lang/jolt#1113), so with the old pin a `reaction` outside
+  `glimmer.ratom` stopped compiling.
 
 ## [0.2.0] - 2026-09-19
 
@@ -103,6 +115,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `:margin-right` on a box, and the `:background` option of `ui/run`.
 - Comments and docstrings no longer refer to the app this backend came from.
 
-[Unreleased]: https://github.com/jolt-lang/glimmer-uikit/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/jolt-lang/glimmer-uikit/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/jolt-lang/glimmer-uikit/compare/v0.2.1...v0.3.0
+[0.2.1]: https://github.com/jolt-lang/glimmer-uikit/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/jolt-lang/glimmer-uikit/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/jolt-lang/glimmer-uikit/releases/tag/v0.1.0
