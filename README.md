@@ -118,6 +118,12 @@ colour. `ui/run`'s other options, such as `:title`, mean nothing on a phone.
 - Gradient: `:stops` — `[["#rrggbb" alpha location] ...]`, top to bottom
 - Scroll: `:spacing`
 
+**An unknown prop is ignored, and said out loud.** A prop that is neither
+common nor in its tag's list above — a typo like `:forground`, or a name that
+changed between versions — does nothing to the view, and the backend prints one
+line naming the tag and the prop. Each pair is named once, on the render that
+first passes it, and `jolt console` shows it.
+
 **Dates:** `:date-format` is `{:date style :time style}`, on a label with
 `:date` or a button with `:label-date`. A style is `:none`, `:short`,
 `:medium`, `:long` or `:full`, the names of Foundation's
@@ -224,10 +230,15 @@ A consumer can teach glimmer-uikit new hiccup tags at load time:
   {:ctor      (fn [props] (make-the-view props))
    :apply     (fn [widget props] (apply props at mount and on re-render))
    :connect   (fn [widget props] (wire its events))   ; optional
+   :props     #{:my-prop}                             ; optional
    :container :none})          ; or :box / :layers / :scroll
 
 (w/register-signal! :on-input "value-changed")   ; apply-props! now skips :on-input
 ```
+
+`:props` names the props the widget takes, beside the ones every widget takes;
+a prop outside both is reported as unknown. A spec without `:props` says
+nothing about what it takes, so nothing of that tag is ever reported.
 
 `register-signal!` marks a key as an event, so a re-render does not try to set it
 on the view. The new widget wires the event to UIKit in `:connect`. `create!`

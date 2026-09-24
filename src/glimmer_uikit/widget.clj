@@ -382,12 +382,15 @@
 
 ;; --- widget specs ------------------------------------------------------------
 ;; Each spec: {:ctor (fn [props] view) :apply (fn [view props]) :container kw
-;;             :connect (fn [view props])? :reset (fn [view gone props])?}
+;;             :connect (fn [view props])? :reset (fn [view gone props])?
+;;             :props #{}?}
 ;; :reset puts back what the props in the set `gone` changed, before :apply
-;; applies `props`.
+;; applies `props`. :props names what the widget takes, beside the props every
+;; widget takes; a prop outside both is reported.
 (defn- window-spec []
   {:ctor  (fn [_] (throw (ex-info "glimmer-uikit: :window is the root container; hiccup cannot create one" {})))
    :apply (fn [_ _] nil)
+   :props #{}
    :container :window})
 
 (def ^:private margin-keys
@@ -426,6 +429,7 @@
             (when (gone :orientation) (u/stack-axis! w u/AXIS-HORIZONTAL))
             (when (and (some gone margin-keys) (nil? (box-margins p)))
               (u/stack-margins-relative! w false)))
+   :props (into #{:spacing :homogeneous :orientation} margin-keys)
    :container :box})
 
 (defn button-font-args
@@ -477,6 +481,10 @@
     :center u/BUTTON-ALIGN-CENTER
     :right  u/BUTTON-ALIGN-RIGHT))
 
+(def ^:private button-props
+  #{:label :label-date :date-format :sensitive :foreground :font-size :font-weight
+    :radius :padding :xalign :border})
+
 (defn- button-spec []
   {:ctor  (fn [p] (doto (u/button-new (or (:label p) ""))
                     ;; a title too long for the tile loses its tail, not its middle
@@ -513,6 +521,7 @@
             (when (gone :padding) (u/button-content-insets! w 0 0 0 0))
             (when (gone :xalign)  (u/button-horizontal-alignment! w u/BUTTON-ALIGN-CENTER))
             (when (gone :border)  (u/layer-border! (u/layer w) 0 (u/color-hex "#000000"))))
+   :props button-props
    :container :none})
 
 (defn- checkbutton-spec
@@ -537,6 +546,7 @@
               ((:reset button) w (apply disj gone own) p)
               (when (gone :active)     (u/button-image! w ffi/null))
               (when (gone :foreground) (u/set-tint-color! w ffi/null)))
+     :props (into button-props own)
      :container :none}))
 
 (defn- ->text-align [x]
@@ -582,6 +592,8 @@
             (when (gone :xalign) (u/label-align! w u/TEXT-ALIGN-NATURAL))
             (when (or (gone :wrap) (gone :lines)) (u/label-lines! w 1))
             (when (or (gone :wrap) (gone :ellipsize)) (u/label-line-break! w u/LINE-BREAK-TAIL)))
+   :props #{:label :text :markup :date :date-markup :date-format
+            :xalign :wrap :lines :ellipsize}
    :container :none})
 
 ;; --- an image from the bundle, a gradient, a plain view ----------------------
@@ -595,6 +607,7 @@
               (u/image-view-image! w (u/image-with-file (str (u/bundle-path) "/" src)))))
    :reset (fn [w gone _]
             (when (gone :src) (u/image-view-image! w ffi/null)))
+   :props #{:src}
    :container :none})
 
 (defn- gradient-spec []
@@ -604,11 +617,13 @@
               (u/gradient-stops! w (mapv (fn [[hex alpha loc]] [(u/color-hex-alpha hex alpha) loc]) stops))))
    :reset (fn [w gone _]
             (when (gone :stops) (u/gradient-clear! w)))
+   :props #{:stops}
    :container :none})
 
 (defn- layers-spec []
   {:ctor  (fn [_] (u/view-new))
    :apply (fn [_ _] nil)
+   :props #{}
    :container :layers})
 
 ;; --- a scroll view ------------------------------------------------------------
@@ -642,6 +657,7 @@
    :reset (fn [w gone _]
             (when (gone :spacing)
               (when-let [b (get @scroll-boxes w)] (u/stack-spacing! b 0))))
+   :props #{:spacing}
    :container :scroll})
 
 (defn- scroll-box
@@ -661,10 +677,11 @@
          :scroll   (scroll-spec)}))
 
 (defn register-widget!
-  "Add a widget spec {:ctor :apply :container :connect? :reset?} under `tag`.
-  create! calls the optional :connect once, last, to wire the view's own
+  "Add a widget spec {:ctor :apply :container :connect? :reset? :props?} under
+  `tag`. create! calls the optional :connect once, last, to wire the view's own
   events. apply-props! calls the optional :reset with the props a render left
-  out, before :apply."
+  out, before :apply. :props names the props the widget takes, beside the ones
+  every widget takes; without it, no prop of this tag is ever reported."
   [tag spec]
   (swap! specs assoc tag spec)
   nil)
@@ -772,12 +789,18 @@
 ;; so what a prop changed must be put back when a later render leaves it out.
 ;; Each spec's :reset puts back its own props, reset-widget-props! the common
 ;; ones, and realign! the parent stack's alignment.
+(def ^:private join-props
+  "Props that act only when a view joins its parent."
+  #{:vfill :full-bleed :safe :height-anchor :height-like})
+
+(def ^:private self-resetting-props
+  "Props that already follow the render: the constraint or the priority they
+  ask for is replaced when they change and dropped when they go."
+  #{:width :height :center-y :hexpand :vexpand})
+
 (def ^:private reset-skip
-  "Props a reset leaves alone. :width, :height, :center-y, :hexpand and
-  :vexpand already follow the render. The rest act only when a view joins
-  its parent."
-  #{:width :height :center-y :hexpand :vexpand
-    :vfill :full-bleed :safe :height-anchor :height-like})
+  "Props a reset leaves alone."
+  (into join-props self-resetting-props))
 
 (defn props-gone
   "The keys with a value in `before` that `after` leaves out or sets to nil,
@@ -822,6 +845,40 @@
                         (->stack-alignment halign valign (u/stack-axis parent))
                         u/ALIGN-CENTER)))
 
+;; --- props a widget does not know --------------------------------------------
+;; A spec applies the props it knows and ignores the rest, so a typo
+;; (:forground) and a name that changed between versions both render a view
+;; that is wrong on the screen and right in the hiccup. Each spec declares the
+;; props it takes; one that is neither its own nor common to every widget is
+;; named once. A report, not a throw: a throw inside a render leaves a phone
+;; with a blank screen, and the view still draws without the prop.
+(def ^:private universal-props
+  "Props every widget takes: apply-widget-props! applies them, or a container
+  reads them when the view joins its parent."
+  (into #{:halign :valign :background :alpha} reset-skip))
+
+(defn unknown-props
+  "The keys of `props` that are neither in `known` nor common to every widget.
+  Public so the rule is testable without UIKit."
+  [props known]
+  (into #{}
+        (comp (map key) (remove known) (remove universal-props))
+        props))
+
+(defonce ^:private reported (atom #{}))   ; [tag prop] pairs already named
+
+(defn- report-unknown!
+  "Name each prop `tag` does not know, once per tag and prop. A spec without
+  :props is never reported on: nothing says what that widget takes."
+  [tag spec props]
+  (when-let [known (:props spec)]
+    (doseq [prop (unknown-props props known)
+            :let [pair [tag prop]]
+            :when (not (contains? @reported pair))]
+      (swap! reported conj pair)
+      (println (str "glimmer-uikit: " tag " does not know the prop " prop
+                    "; the view ignores it")))))
+
 ;; --- public create / patch ---------------------------------------------------
 (defn create!
   "Construct a fresh UIKit view for `tag`, apply `props`, wire :on-click or
@@ -832,6 +889,7 @@
   (let [props (with-orientation tag props)
         s (spec-for tag)
         widget ((:ctor s) props)]
+    (report-unknown! tag s (applied-props tag props))
     (forget! widget)
     ((:apply s) widget props)
     (apply-widget-props! widget props)
@@ -850,6 +908,7 @@
         applied   (applied-props tag props)
         gone      (props-gone (recall widget :props) applied reset-skip)
         alignment (recall widget :alignment)]
+    (report-unknown! tag spec applied)
     (when (seq gone)
       (when-let [reset (:reset spec)] (reset widget gone applied))
       (reset-widget-props! widget gone))

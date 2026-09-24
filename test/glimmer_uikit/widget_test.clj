@@ -1,6 +1,7 @@
 (ns glimmer-uikit.widget-test
   "Headless tests for the widget layer's pure functions. No UIKit needed."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.string :as str]
+            [clojure.test :refer [deftest is testing]]
             [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]
@@ -140,6 +141,39 @@
   (w/register-widget! :address-probe {:ctor (fn [_] 4747) :apply (fn [_ _] nil) :container :none})
   (w/create! :address-probe {})
   (is (nil? (w/handler-for 4747)) "a new view at a freed address inherits no handler"))
+
+(deftest unknown-props-finds-what-a-spec-does-not-know
+  (testing "a prop the spec does not name is unknown"
+    (is (= #{:forground} (w/unknown-props {:label "x" :forground "#fff"} #{:label :text}))))
+  (testing "a prop the spec names is known"
+    (is (= #{} (w/unknown-props {:label "x"} #{:label :text}))))
+  (testing "a common prop is known to every widget"
+    (is (= #{} (w/unknown-props {:background "#224466" :halign :fill :width 10} #{}))))
+  (testing "every unknown prop comes back"
+    (is (= #{:one :two} (w/unknown-props {:one 1 :two 2 :label "x"} #{:label})))))
+
+(deftest an-unknown-prop-is-reported-once
+  ;; a fake pointer: with no prop the spec knows, the label's apply touches no UIKit
+  (let [first-render  (with-out-str (w/apply-props! :label 5151 {:forground "#fff"}))
+        second-render (with-out-str (w/apply-props! :label 5151 {:forground "#fff"}))]
+    (is (str/includes? first-render ":label") "the report names the tag")
+    (is (str/includes? first-render ":forground") "the report names the prop")
+    (is (= "" second-render) "the same tag and prop are reported once")))
+
+(deftest a-checkbutton-knows-its-own-props
+  (is (= "" (with-out-str (w/apply-props! :checkbutton 5252 {:symbol 20})))
+      ":symbol is the checkbutton's, though the button it delegates to has no such prop"))
+
+(deftest a-registered-widget-declares-its-props
+  (w/register-widget! :props-probe
+                      {:ctor (fn [_] 5353) :apply (fn [_ _] nil) :container :none
+                       :props #{:mine}})
+  (is (= "" (with-out-str (w/create! :props-probe {:mine 1}))))
+  (is (str/includes? (with-out-str (w/create! :props-probe {:theirs 1})) ":theirs")))
+
+(deftest a-widget-that-declares-no-props-is-never-reported
+  (w/register-widget! :quiet-probe {:ctor (fn [_] 5454) :apply (fn [_ _] nil) :container :none})
+  (is (= "" (with-out-str (w/create! :quiet-probe {:anything 1})))))
 
 (deftest take-gives-a-remembered-value-once
   ;; a fake pointer: the view registry is plain data
