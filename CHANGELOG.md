@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- glimmer is pinned to v0.1.4, where `swap!` on a ratom is atomic. Two
+  threads swapping the same cell at once no longer lose one of the writes.
+
 ## [0.3.0] - 2026-09-24
 
 ### Added
