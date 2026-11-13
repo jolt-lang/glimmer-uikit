@@ -15,8 +15,8 @@
  ;; macOS host before it emits code, and the headless tests (`jolt -M:test`) run
  ;; on Linux CI, where no Objective-C runtime exists.
  :deps {jolt-lang/glimmer {:git/url "https://github.com/jolt-lang/glimmer"
-                           :git/tag "v0.1.6"
-                           :git/sha "d81af8fb2fa4164a2261db3c15fc7c93271dce60"}}
+                           :git/tag "v0.1.8"
+                           :git/sha "7f00d14d1b3c6239638d03780006c4a76fca379f"}}
 
  ;; hiccup is test-only: the backend writes Pango markup itself, and a
  ;; generative test (test.check) compares that output with hiccup's.
