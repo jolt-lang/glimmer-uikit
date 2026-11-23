@@ -113,6 +113,16 @@
     (w/apply-props! :button 4242 {:on-click end})
     (is (= end (w/handler-for 4242)) "the handler follows the render, not the mount")))
 
+(deftest an-unchanged-patch-touches-nothing
+  ;; a fake pointer: a patch whose props did not change must not reach the
+  ;; spec (or UIKit) at all, and a changed one applies like apply-props!
+  (let [h1 (fn [] :one) h2 (fn [] :two)]
+    (w/apply-props! :button 4444 {:on-click h1})
+    (w/patch-props! :button 4444 {:on-click h2} {:on-click h2})
+    (is (= h1 (w/handler-for 4444)) "equal props: nothing re-applied")
+    (w/patch-props! :button 4444 {:on-click h1} {:on-click h2})
+    (is (= h2 (w/handler-for 4444)) "changed props: applied")))
+
 (deftest a-checkbutton-is-a-leaf-that-toggles
   ;; a fake pointer again: :on-toggled is a signal, so the spec's apply
   ;; sees no :active and touches no UIKit

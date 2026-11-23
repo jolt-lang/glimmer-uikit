@@ -921,6 +921,20 @@
       (realign! parent))
     (update-handler! widget props)))
 
+;; :patch-props! — the re-render path, knowing the props the last render
+;; applied. Nothing here holds a value the user edits behind the app's back (a
+;; checkbutton's :active is the app's: a tap calls the handler, and the app sets
+;; it), so the one thing to gain is skipping a render that changed nothing. A
+;; render that changed anything re-applies the whole map, as apply-props! does:
+;; the specs read props together (constraints, alignment, a label's lines), so
+;; setting only the changed keys would undo the rest.
+(defn patch-props!
+  "The backend's :patch-props!: touch nothing when the props are the ones the
+  last render applied, else re-apply them all with apply-props!."
+  [tag widget old-props new-props]
+  (when (not= old-props new-props)
+    (apply-props! tag widget new-props)))
+
 ;; --- container child management ----------------------------------------------
 (defn- maybe-align!
   "Derive the parent stack's alignment from a child's :halign/:valign."

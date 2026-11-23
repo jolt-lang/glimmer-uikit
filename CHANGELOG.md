@@ -7,7 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `:patch-props!` (glimmer 0.2's re-render path, which knows the props the last
+  render applied). A render whose props did not change touches no view; one
+  that changed anything re-applies them all, as before.
+
 ### Changed
+
+- glimmer is pinned to 0.2, whose reconciler skips unchanged subtrees, matches
+  keyed and unkeyed children in one list, and hands each view one stable
+  handler per event that calls the latest render's handler.
 
 - glimmer is pinned to v0.1.4, where `swap!` on a ratom is atomic. Two
   threads swapping the same cell at once no longer lose one of the writes.

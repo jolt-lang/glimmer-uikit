@@ -182,6 +182,7 @@
   {:name           :ios
    :create!        w/create!
    :apply-props!   w/apply-props!
+   :patch-props!   w/patch-props!
    :append-child!  w/append-child!
    :remove-child!  w/remove-child!
    :replace-child! w/replace-child!
