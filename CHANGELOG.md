@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-23
+
 ### Added
 
 - `:patch-props!` (glimmer 0.2's re-render path, which knows the props the last
@@ -17,10 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - glimmer is pinned to 0.2, whose reconciler skips unchanged subtrees, matches
   keyed and unkeyed children in one list, and hands each view one stable
-  handler per event that calls the latest render's handler.
-
-- glimmer is pinned to v0.1.4, where `swap!` on a ratom is atomic. Two
-  threads swapping the same cell at once no longer lose one of the writes.
+  handler per event that calls the latest render's handler. (Since 0.3.1 it
+  had been at v0.1.4 and later, where `swap!` on a ratom is atomic.)
 
 ## [0.3.0] - 2026-09-24
 
@@ -130,7 +130,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `:margin-right` on a box, and the `:background` option of `ui/run`.
 - Comments and docstrings no longer refer to the app this backend came from.
 
-[Unreleased]: https://github.com/jolt-lang/glimmer-uikit/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/jolt-lang/glimmer-uikit/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/jolt-lang/glimmer-uikit/compare/v0.3.2...v0.4.0
 [0.3.0]: https://github.com/jolt-lang/glimmer-uikit/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/jolt-lang/glimmer-uikit/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/jolt-lang/glimmer-uikit/compare/v0.1.0...v0.2.0
