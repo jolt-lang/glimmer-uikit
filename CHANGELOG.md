@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-23
+
+### Changed
+
+- glimmer is pinned to v0.2.1, whose skip of unchanged hiccup no longer
+  misses a child whose `^{:key}` metadata alone changed.
+
 ## [0.4.0] - 2026-11-23
 
 ### Added
@@ -130,7 +137,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `:margin-right` on a box, and the `:background` option of `ui/run`.
 - Comments and docstrings no longer refer to the app this backend came from.
 
-[Unreleased]: https://github.com/jolt-lang/glimmer-uikit/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/jolt-lang/glimmer-uikit/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/jolt-lang/glimmer-uikit/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/jolt-lang/glimmer-uikit/compare/v0.3.2...v0.4.0
 [0.3.0]: https://github.com/jolt-lang/glimmer-uikit/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/jolt-lang/glimmer-uikit/compare/v0.2.0...v0.2.1
